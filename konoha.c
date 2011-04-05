@@ -17,6 +17,8 @@
 
 DEF_TUPLE_STRUCT(Token, Token);
 DEF_TUPLE_OP(Token, Token);
+DEF_ARRAY_STRUCT(Token);
+DEF_ARRAY_OP(Token);
 
 DEF_ARRAY_T(Tuple);
 DEF_ARRAY_STRUCT(Tuple);
@@ -131,14 +133,24 @@ knh_Tuple_t *new_Tuple(void)
     t->o1 = t->o2 = NULL;
     return t;
 }
-
+static const char *convert_alias(const char *s)
+{
+    int i;
+    Ctx *ctx = g_ctx;
+    struct alias_info *x;
+    for (i = 0; i < ctx->alias_size; i++) {
+        x = ctx->alias + i;
+        if (strcmp(x->n1, s) == 0)
+            return x->n2;
+    }
+    return s;
+}
 knh_Token_t *konoha_build_id(const char *name)
 {
-    knh_string_t *val = new_string(name);
     knh_Token_t *t = new_(Token);
     t->code = IDENTIFIER_NODE;
     t->type = TYPE_UNTYPED;
-    t->data.str = val;
+    t->data.str = new_string(convert_alias(name));
     return t;
 }
 knh_Token_t *konoha_build_int(int val)
@@ -181,6 +193,15 @@ static inline int token_code_is(knh_Token_t *t, enum token_code code)
 }
 static knh_class_t string_to_type(knh_string_t *s)
 {
+    int i;
+    Ctx *ctx = g_ctx;
+    struct type_info *x;
+    for (i = 0; i < ctx->type_size; i++) {
+        x = ctx->types + i;
+        if (strcmp(x->name, s->txt) == 0) {
+            return x->cid;
+        }
+    }
     return TYPE_UNTYPED;
 }
 
@@ -193,12 +214,42 @@ knh_Token_t *knh_Token_toType(knh_Token_t *t)
     return t;
 }
 
-knh_Token_t *variable_decl(CTX ctx, knh_Token_t *type, Array(Token) *vec)
+static inline knh_Token_t *token_op(knh_Token_t *t, enum token_code code)
 {
-    if (!type) {
+    assert(t->code == code);
+    return t;
+}
+#define TOKEN_TYPE(t)  ((t)->type)
+#define Token_tocid(t) (TOKEN_TYPE(token_op(t, TYPE_NODE)))
+
+#define FOR_EACH_ARRAY(a, x, i) \
+    for(i=0, x = a->list[0]; i < (a)->size; x=a->list[(++i)])
+
+static void Token_typing(knh_Token_t *t, knh_class_t cid)
+{
+    if (TOKEN_TYPE(t) == TYPE_UNTYPED) {
+        TOKEN_TYPE(t) = cid;
+    } else {
         asm volatile("int3");
     }
-    return NULL;
+    /* TODO */
+    /* traverse token and convert each tokens */
+}
+
+knh_Token_t *variable_decl(CTX ctx, knh_Token_t *type, Array(Token) *vec)
+{
+    if (type) {
+        knh_class_t cid = Token_tocid(type);
+        int i;
+        knh_Token_t *x;
+        FOR_EACH_ARRAY(vec, x, i) {
+            Token_typing(x, cid);
+        }
+    } else {
+        /* decl untyped variable */
+        asm volatile("int3");
+    }
+    return vec;
 }
 
 knh_Token_t *build_variable_decl(knh_Token_t *name, knh_Token_t *init)
@@ -220,5 +271,24 @@ knh_Token_t *build_assignment(knh_Token_t *expr)
 knh_Token_t *build_assignment_expr(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
 {
     return NULL;
+}
+
+knh_Token_t *new_TokenStmtList(void)
+{
+    knh_Token_t *t = new_(Token);
+    t->code   = STMT_LIST;
+    t->type   = TYPE_UNTYPED;
+    t->data.o = NULL;
+    return t;
+}
+
+void knh_TokenStmtList_add(knh_Token_t *stmts, knh_Token_t *t)
+{
+    Array(Token) *a;
+    if (!t->data.o) {
+        t->data.o = O(Array_new(Token));
+    }
+    a = (Array(Token) *) t->data.o;
+    Array_add(Token, a, t);
 }
 

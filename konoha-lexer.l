@@ -132,7 +132,7 @@ void knh_dump(CTX ctx, knh_Object_t *o);
 }
 <INITIAL>[A-Za-z_$][A-Za-z_0-9]* {
     konoha_lval.token = konoha_build_id(yytext);
-    knh_dump(ctx, cast(knh_Object_t*, konoha_lval.token));
+    //knh_dump(ctx, cast(knh_Object_t*, konoha_lval.token));
     return IdentifierName;
 }
 <INITIAL>[1-9][0-9]* {
@@ -221,9 +221,10 @@ void knh_dump(CTX ctx, knh_Object_t *o);
 static void write_buf(char*);
 static char *buf_tochar(void)
 {
-  int len;
-  char *str;
-  return str;
+  //int len;
+  //char *str;
+  //return str;
+  return NULL;
 }
 static void write_buf(char *str)
 {
@@ -236,6 +237,6 @@ int konoha_wrap (void)
 
 int konoha_error (const char *msg)
 {
-  error("%s", msg);
+  fprintf(stderr, "%s", msg);
   exit(1);
 }

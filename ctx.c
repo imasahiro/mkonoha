@@ -76,7 +76,7 @@ static void construct_default_value(CTX ctx)
     {
         int alias_size = _ARRAY_SIZE(DEFAULT_ALIAS_INFO);
         struct alias_info *info = malloc_(sizeof(struct alias_info) * alias_size);
-        memcpy(info, DEFAULT_OBJECT_INFO, sizeof(struct alias_info) * alias_size);
+        memcpy(info, DEFAULT_ALIAS_INFO,  sizeof(struct alias_info) * alias_size);
         ((struct context *)ctx)->alias      = info;
         ((struct context *)ctx)->alias_size = alias_size;
     }

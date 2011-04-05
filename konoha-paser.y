@@ -79,6 +79,7 @@ DEF_TUPLE_OP(Token, Token);
 %type<token> VariableStatement VariableDeclaration
 %type<token> Initialiser
 %type<token> AssignmentExpression ConditionalExpression
+%type<token> StatementList Statement
 
 %type<vec> VariableDeclarationList
 %type<op>  AssignmentOperator
@@ -157,8 +158,15 @@ Block
     ;
 
 StatementList 
-    : Statement
-    | StatementList Statement
+    : Statement {
+        knh_Token_t *stmts = new_TokenStmtList();
+        knh_TokenStmtList_add(stmts, $1);
+        $$ = stmts;
+    }
+    | StatementList Statement {
+        knh_Token_t *stmts = $1;
+        knh_TokenStmtList_add(stmts, $2);
+    }
     ;
 
 VariableStatement 

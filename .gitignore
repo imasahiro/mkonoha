@@ -1,0 +1,9 @@
+GPATH
+GRTAGS
+GTAGS
+build/konoha-lexer.o
+build/konoha-paser.o
+build/konoha.o
+build/y.gen.c
+build/y.gen.h
+
