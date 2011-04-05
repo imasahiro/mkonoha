@@ -7,8 +7,8 @@ objs = \
 
 FLEX=flex
 BISON=bison
-KONOHA=minikonoha
-CFLAGS=-I./build/ -I. -O0 -g3 -Wall
+KONOHA=$(build)/minikonoha
+CFLAGS=-I$(build) -I. -O0 -g3 -Wall
 LDFLAGS=
 KNH_HEADERS= \
 	konoha.h \
