@@ -1,6 +1,7 @@
 GPATH
 GRTAGS
 GTAGS
+build/lexer.gen.c
 build/konoha-lexer.o
 build/konoha-paser.o
 build/konoha.o
