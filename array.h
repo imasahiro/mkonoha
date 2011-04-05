@@ -60,11 +60,16 @@ static void Array_##T##_set(Array(T) *a, int idx, KNH_T(T) *v){ \
     array_op(a, check_index, idx);                  \
     array_op(a, check_type, O(v)->h.classinfo);     \
     a->list[idx] = v;                               \
+}\
+static inline void Array_##T##_delete(Array(T) *a) {\
+    free(a);                                        \
 }
+
 
 #define Array_get(T, a, idx)    Array_##T##_get(a, idx)
 #define Array_set(T, a, idx, v) Array_##T##_set(a, idx, v)
 #define Array_add(T, a, v)      Array_##T##_add(a, v)
+#define Array_delete(T, a)      Array_##T##_delete(a)
 #define Array_new(T)            Array_new_##T ()
 knh_Array_t *new_Array(void);
 

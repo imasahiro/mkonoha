@@ -14,6 +14,7 @@
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
 #define FOR_EACH_STATIC(a, x, i) for(i=0, x = a; i < _ARRAY_SIZE(a); x=&a[(++i)])
+#define TODO() asm volatile("int3")
 
 DEF_TUPLE_STRUCT(Token, Token);
 DEF_TUPLE_OP(Token, Token);
@@ -225,6 +226,29 @@ static inline knh_Token_t *token_op(knh_Token_t *t, enum token_code code)
 #define FOR_EACH_ARRAY(a, x, i) \
     for(i=0, x = a->list[0]; i < (a)->size; x=a->list[(++i)])
 
+knh_Token_t *new_TokenStmtList(void)
+{
+    knh_Token_t *t = new_(Token);
+    t->code   = STMT_LIST;
+    t->type   = TYPE_UNTYPED;
+    t->data.o = O(Array_new(Token));
+    return t;
+}
+
+knh_Token_t *new_TokenStmtList__(Array(Token) *a)
+{
+    knh_Token_t *t = new_TokenStmtList();
+    Array_delete(Token, (Array(Token) *)t->data.o);
+    t->data.o = O(a);
+    return t;
+}
+
+void knh_TokenStmtList_add(knh_Token_t *stmts, knh_Token_t *t)
+{
+    Array(Token) *a = (Array(Token) *) t->data.o;
+    Array_add(Token, a, t);
+}
+
 static void Token_typing(knh_Token_t *t, knh_class_t cid)
 {
     if (TOKEN_TYPE(t) == TYPE_UNTYPED) {
@@ -249,7 +273,7 @@ knh_Token_t *variable_decl(CTX ctx, knh_Token_t *type, Array(Token) *vec)
         /* decl untyped variable */
         asm volatile("int3");
     }
-    return vec;
+    return new_TokenStmtList__(vec);
 }
 
 knh_Token_t *build_variable_decl(knh_Token_t *name, knh_Token_t *init)
@@ -265,30 +289,83 @@ knh_Token_t *build_variable_decl(knh_Token_t *name, knh_Token_t *init)
 
 knh_Token_t *build_assignment(knh_Token_t *expr)
 {
+    TODO();
     return NULL;
 }
 
 knh_Token_t *build_assignment_expr(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
 {
+    TODO();
     return NULL;
 }
-
-knh_Token_t *new_TokenStmtList(void)
+knh_Token_t *build_throw_expr(knh_Token_t *t)
 {
-    knh_Token_t *t = new_(Token);
-    t->code   = STMT_LIST;
-    t->type   = TYPE_UNTYPED;
-    t->data.o = NULL;
-    return t;
+    TODO();
+    return NULL;
 }
-
-void knh_TokenStmtList_add(knh_Token_t *stmts, knh_Token_t *t)
+knh_Token_t *build_operator2(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
 {
-    Array(Token) *a;
-    if (!t->data.o) {
-        t->data.o = O(Array_new(Token));
-    }
-    a = (Array(Token) *) t->data.o;
-    Array_add(Token, a, t);
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_operator1(KOperator op, knh_Token_t *t1)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_typeof(knh_Token_t *t1)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_instanceof(knh_Token_t *t1, knh_Token_t *t2)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_reutrn(knh_Token_t *expr)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_try_catch(knh_Token_t *t, knh_Token_t *c, knh_Token_t *f)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_catch(knh_Token_t *name, knh_Token_t *block)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_final(knh_Token_t *block)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_for(knh_Token_t *expr1, knh_Token_t *expr2, knh_Token_t *expr3, knh_Token_t *body)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_for_decl(knh_Token_t *type, Array(Token) *valist, knh_Token_t *expr1, knh_Token_t *expr2, knh_Token_t *body)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_while(knh_Token_t *expr, knh_Token_t *body)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_if_else(knh_Token_t *cond, knh_Token_t *b1, knh_Token_t *b2)
+{
+    TODO();
+    return NULL;
+}
+knh_Token_t *build_foreach(knh_Token_t *type, knh_Token_t *var, knh_Token_t *itr, knh_Token_t *stmt)
+{
+    TODO();
+    return NULL;
 }
 
