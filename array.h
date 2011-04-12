@@ -1,7 +1,6 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
-
 #define Array(T) knh_Array_##T##_t
 
 //##define @type Array
@@ -41,22 +40,22 @@ static inline int array_check_type(knh_Array_t *a, knh_class_t type)
 }
 
 #define DEF_ARRAY_OP(T)\
-static Array(T) *Array_new_##T (void) {             \
+static inline Array(T) *Array_new_##T (void) {             \
     Array(T) *a = cast(Array(T) *, new_Array());    \
     a->type = TYPE_##T;                             \
     return a;                                       \
 }\
-static void Array_##T##_add(Array(T) *a, KNH_T(T) *v) {\
+static inline void Array_##T##_add(Array(T) *a, KNH_T(T) *v) {\
     array_op(a, check_type, O(v)->h.classinfo);     \
-    if (a->size + 1 > a->capacity)                  \
+    if (a->size + 1 >= a->capacity)                  \
         a->list = realloc(a->list, a->capacity * 2);\
     a->list[a->size++] = v;                         \
 }\
-static KNH_T(T) *Array_##T##_get(Array(T) *a, int idx) {\
+static inline KNH_T(T) *Array_##T##_get(Array(T) *a, int idx) {\
     array_op(a, check_index, idx);                  \
     return a->list[idx];                            \
 }\
-static void Array_##T##_set(Array(T) *a, int idx, KNH_T(T) *v){ \
+static inline void Array_##T##_set(Array(T) *a, int idx, KNH_T(T) *v){ \
     array_op(a, check_index, idx);                  \
     array_op(a, check_type, O(v)->h.classinfo);     \
     a->list[idx] = v;                               \
@@ -71,6 +70,8 @@ static inline void Array_##T##_delete(Array(T) *a) {\
 #define Array_add(T, a, v)      Array_##T##_add(a, v)
 #define Array_delete(T, a)      Array_##T##_delete(a)
 #define Array_new(T)            Array_new_##T ()
+#define Array_n(a, n) (a->list[n])
+#define Array_size(a) (a->size)
 knh_Array_t *new_Array(void);
 
 #endif /* end of include guard: ARRAY_H */

@@ -1,3 +1,5 @@
+#ifndef TUPLE_H
+#define TUPLE_H
 
 #ifndef KNH_T
 #define KNH_T(T) knh_##T##_t
@@ -33,7 +35,7 @@ static inline int tuple_check_type2(knh_Tuple_t *a, knh_class_t type)
 }
 
 #define DEF_TUPLE_OP(K, V)\
-static Tuple(K, V) *Tuple_new_##K##_##V (KNH_T(K) *k, KNH_T(V) *v) {    \
+static inline Tuple(K, V) *Tuple_new_##K##_##V (KNH_T(K) *k, KNH_T(V) *v) {    \
     Tuple(K, V) *t = cast(Tuple(K, V) *, new_Tuple());                  \
     t->type1 = TYPE_##K;                                                \
     t->type2 = TYPE_##V;                                                \
@@ -41,17 +43,17 @@ static Tuple(K, V) *Tuple_new_##K##_##V (KNH_T(K) *k, KNH_T(V) *v) {    \
     t->o2    = v;                                                       \
     return t;                                                           \
 }\
-static KNH_T(K) *Tuple_##K##_##V##_K(Tuple(K, V) *t) {\
+static inline KNH_T(K) *Tuple_##K##_##V##_K(Tuple(K, V) *t) {\
     return t->o1;                                     \
 }\
-static KNH_T(V) *Tuple_##K##_##V##_V(Tuple(K, V) *t) {\
+static inline KNH_T(V) *Tuple_##K##_##V##_V(Tuple(K, V) *t) {\
     return t->o2;                                     \
 }\
-static void Tuple_##K##_##V##_setK(Tuple(K, V) *t, KNH_T(K) *v){ \
+static inline void Tuple_##K##_##V##_setK(Tuple(K, V) *t, KNH_T(K) *v){ \
     tuple_op(t, check_type1, O(v)->h.classinfo);                 \
     t->o1 = v;                                                  \
 }\
-static void Tuple_##K##_##V##_setV(Tuple(K, V) *t, KNH_T(V) *v){ \
+static inline void Tuple_##K##_##V##_setV(Tuple(K, V) *t, KNH_T(V) *v){ \
     tuple_op(t, check_type2, O(v)->h.classinfo);                 \
     t->o2 = v;                                                  \
 }
@@ -66,3 +68,4 @@ static void Tuple_##K##_##V##_setV(Tuple(K, V) *t, KNH_T(V) *v){ \
 knh_Tuple_t *new_Tuple(void);
 #define T(t) ((knh_Tuple_t*)(t))
 
+#endif /* end of include guard: TUPLE_H */

@@ -15,6 +15,11 @@
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
 #define FOR_EACH_STATIC(a, x, i) for(i=0, x = a; i < _ARRAY_SIZE(a); x=&a[(++i)])
 #define TODO() asm volatile("int3")
+#define FOR_EACH_ARRAY(a, x, i) \
+    for(i=0, x = a->list[0]; i < (a)->size; x=a->list[(++i)])
+
+#define FOR_EACH_TOKEN(stt, x, i) \
+    FOR_EACH_ARRAY(((Array(Token)*)stt->data.o), x, i)
 
 DEF_TUPLE_STRUCT(Token, Token);
 DEF_TUPLE_OP(Token, Token);
@@ -112,6 +117,7 @@ void knh_dump(CTX ctx, knh_Object_t *o)
 {
     struct type_info *typeinfo = ctx->types + o->h.classinfo;
     typeinfo->write_(ctx, stderr, o);
+    fputs("\n", stderr);
 }
 
 #include "ctx.c"
@@ -125,7 +131,6 @@ knh_Array_t *new_Array(void)
     a->list = malloc_(sizeof(void*));
     return a;
 }
-
 knh_Tuple_t *new_Tuple(void)
 {
     knh_Tuple_t *t = new_(Tuple);
@@ -223,9 +228,6 @@ static inline knh_Token_t *token_op(knh_Token_t *t, enum token_code code)
 #define TOKEN_TYPE(t)  ((t)->type)
 #define Token_tocid(t) (TOKEN_TYPE(token_op(t, TYPE_NODE)))
 
-#define FOR_EACH_ARRAY(a, x, i) \
-    for(i=0, x = a->list[0]; i < (a)->size; x=a->list[(++i)])
-
 knh_Token_t *new_TokenStmtList(void)
 {
     knh_Token_t *t = new_(Token);
@@ -245,7 +247,7 @@ knh_Token_t *new_TokenStmtList__(Array(Token) *a)
 
 void knh_TokenStmtList_add(knh_Token_t *stmts, knh_Token_t *t)
 {
-    Array(Token) *a = (Array(Token) *) t->data.o;
+    Array(Token) *a = (Array(Token) *) stmts->data.o;
     Array_add(Token, a, t);
 }
 
@@ -295,8 +297,16 @@ knh_Token_t *build_assignment(knh_Token_t *expr)
 
 knh_Token_t *build_assignment_expr(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
 {
-    TODO();
-    return NULL;
+    knh_Token_t *t = new_(Token);
+    Array(Token) *a = Array_new(Token);
+    Array_add(Token, a, t1);
+    Array_add(Token, a, t2);
+    t->code   = op;
+    /* TODO typing token "t" */
+    /* t->type   = typing(t1, t2); */
+    t->type   = TYPE_UNTYPED;
+    t->data.o = O(a);
+    return t;
 }
 knh_Token_t *build_throw_expr(knh_Token_t *t)
 {
@@ -305,13 +315,28 @@ knh_Token_t *build_throw_expr(knh_Token_t *t)
 }
 knh_Token_t *build_operator2(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
 {
-    TODO();
-    return NULL;
+    knh_Token_t *t = new_(Token);
+    Array(Token) *a = Array_new(Token);
+    Array_add(Token, a, t1);
+    Array_add(Token, a, t2);
+    t->code   = op;
+    /* TODO typing token "t" */
+    /* t->type   = typing(t1, t2); */
+    t->type   = TYPE_UNTYPED;
+    t->data.o = O(a);
+    return t;
 }
 knh_Token_t *build_operator1(KOperator op, knh_Token_t *t1)
 {
-    TODO();
-    return NULL;
+    knh_Token_t *t = new_(Token);
+    Array(Token) *a = Array_new(Token);
+    Array_add(Token, a, t1);
+    t->code   = op;
+    /* TODO typing token "t" */
+    /* t->type   = typing(t1, t2); */
+    t->type   = TYPE_UNTYPED;
+    t->data.o = O(a);
+    return t;
 }
 knh_Token_t *build_typeof(knh_Token_t *t1)
 {
@@ -325,8 +350,12 @@ knh_Token_t *build_instanceof(knh_Token_t *t1, knh_Token_t *t2)
 }
 knh_Token_t *build_reutrn(knh_Token_t *expr)
 {
-    TODO();
-    return NULL;
+    knh_Token_t *t = new_(Token);
+    t->code   = RETUEN_NODE;
+    t->type   = TYPE_UNTYPED;
+    t->data.o = O(expr);
+    return t;
+
 }
 knh_Token_t *build_try_catch(knh_Token_t *t, knh_Token_t *c, knh_Token_t *f)
 {
@@ -366,6 +395,29 @@ knh_Token_t *build_if_else(knh_Token_t *cond, knh_Token_t *b1, knh_Token_t *b2)
 knh_Token_t *build_foreach(knh_Token_t *type, knh_Token_t *var, knh_Token_t *itr, knh_Token_t *stmt)
 {
     TODO();
+    return NULL;
+}
+
+void write_global_script(knh_Token_t *stmt)
+{
+    int i;
+    knh_Token_t *x;
+    token_check(stmt, code_is, STMT_LIST);
+    FOR_EACH_TOKEN(stmt, x, i) {
+        knh_dump(g_ctx, O(x));
+    }
+}
+
+knh_Token_t *build_function_decl(knh_Token_t *type, knh_Token_t *name, knh_Token_t *param, knh_Token_t *body)
+{
+    fprintf(stderr, "type\n");
+    knh_dump(g_ctx, O(type));
+    fprintf(stderr, "name\n");
+    knh_dump(g_ctx, O(name));
+    fprintf(stderr, "param\n");
+    knh_dump(g_ctx, O(param));
+    fprintf(stderr, "type\n");
+    knh_dump(g_ctx, O(body));
     return NULL;
 }
 

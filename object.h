@@ -1,3 +1,6 @@
+#ifndef OBJECT_H
+#define OBJECT_H
+
 typedef intptr_t knh_class_t;
 typedef void knh_void_t;
 
@@ -50,3 +53,5 @@ enum object_type {
 };
 
 #define O(o) ((knh_Object_t*)o)
+
+#endif /* end of include guard: OBJECT_H */

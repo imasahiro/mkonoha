@@ -11,6 +11,41 @@ static void default_write(CTX ctx, FILE *fd, knh_Object_t *o)
     struct type_info *typeinfo = ctx->types + o->h.classinfo;
     fprintf(fd, "%s(%p)\n", typeinfo->name, o);
 }
+static const char * operator_code_string[] = {
+    "undef",
+    "=",
+    "*=",
+    "/=",
+    "%=",
+    "+=",
+    "-=",
+    "<<=",
+    ">>=",
+    "&=",
+    "^=",
+    "|=",
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "in",
+    "<<",
+    ">>",
+    "|",
+    "^",
+    "&",
+    "!",
+    "~",
+    "<",
+    "<=",
+    ">", 
+    ">=",
+    "==",
+    "!=",
+    "++",
+    "--",
+};
 
 #define Token_CODE(t) (t->code)
 #define Token_type(t) (t->type)
@@ -21,8 +56,17 @@ static void Token_write(CTX ctx, FILE *fd, knh_Object_t *o)
     fprintf(fd, "Token(");
     switch(code) {
         case STMT_LIST:
-            fprintf(fd, "stmt_list");
+        {
+            int i;
+            knh_Token_t *x;
+            fputs("stmt_list [", fd);
+            FOR_EACH_TOKEN(t, x, i) {
+                if (i != 0) fputs(", ", fd);
+                Token_write(ctx, fd, O(x));
+            }
+            fputs("]", fd);
             break;
+        }
         case TYPE_NODE:
             fprintf(fd, "type(");
             type_write(ctx, fd, Token_type(t));
@@ -37,14 +81,35 @@ static void Token_write(CTX ctx, FILE *fd, knh_Object_t *o)
         case FLOAT_CONST:
             fprintf(fd, "float:%f", t->data.fval);
             break;
+        case VAR_DECL:
+        {
+            Tuple(Token, Token) *tpl = (Tuple(Token, Token)*)t->data.o;
+            fputs("var_decl:", fd);
+            Token_write(ctx, fd, O(tpl->o1));
+            fputs(":=", fd);
+            Token_write(ctx, fd, O(tpl->o2));
+            break;
+        }
         case STRING_CONST:
-            fprintf(fd, "stmt_list");
+            fputs("string:", fd);
+            break;
+        case RETUEN_NODE:
+            fputs("return:", fd);
+            Token_write(ctx, fd, O(t->data.o));
             break;
         default:
+            if (code >= TOKEN_CODE_MAX) {
+                Array(Token) *a = ((Array(Token)*)t->data.o);
+                Token_write(ctx, fd, O(Array_n(a, 0)));
+                fputs(operator_code_string[code - TOKEN_CODE_MAX], fd);
+                if (Array_size(a) > 1) {
+                    Token_write(ctx, fd, O(Array_n(a, 1)));
+                }
+            }
             break;
     }
-    fprintf(stderr, ")\n");
-};
+    fputs(")", fd);
+}
 
 
 struct type_info DEFAULT_OBJECT_INFO[] = {

@@ -1,12 +1,12 @@
+#ifndef KONOHA_H
+#define KONOHA_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
-
-#ifndef KONOHA_H
-#define KONOHA_H
 
 #define cast(T, p) ((T) p)
 #define KNH_T(T) knh_##T##_t
@@ -60,5 +60,7 @@ knh_Token_t *build_foreach(knh_Token_t *type, knh_Token_t *var, knh_Token_t *itr
 
 knh_Token_t *new_TokenStmtList(void);
 void knh_TokenStmtList_add(knh_Token_t *stmts, knh_Token_t *t);
+void write_global_script(knh_Token_t *stmt);
+knh_Token_t *build_function_decl(knh_Token_t *type, knh_Token_t *name, knh_Token_t *param, knh_Token_t *body);
 
 #endif /* end of include guard: KONOHA_H */

@@ -9,11 +9,12 @@ enum token_code {
     FLOAT_CONST,
     STRING_CONST,
     VAR_DECL, 
+    RETUEN_NODE, 
     TOKEN_CODE_MAX
 };
 
 enum operator_code {
-    OpUndef  ,
+    OpUndef  = TOKEN_CODE_MAX,
     OpEQLET  , /*    = */
     OpMULLET , /*   *= */
     OpDIVLET , /*   /= */
@@ -22,7 +23,6 @@ enum operator_code {
     OpSUBLET , /*   -= */
     OpLSFTLET, /*  <<= */
     OpRSFTLET, /*  >>= */
-    OpSHFTLET, /* >>>= */
     OpANDLET , /*   &= */
     OpXORLET , /*   ^= */
     OpORLET  , /*   |= */
@@ -49,6 +49,5 @@ enum operator_code {
     OpDEC    ,
     OPERATOR_CODE_MAX
 };
-
 
 #endif /* end of include guard: TOKEN_H */

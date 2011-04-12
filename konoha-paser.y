@@ -47,11 +47,9 @@ DEF_TUPLE_OP(Token, Token);
 %token LBRACE RBRACE   /* { } */
 %token LCBRACE RCBRACE /* ( ) */
 %token LPARENTHESIS RPARENTHESIS /* [ ] */
-%token Var
-%token If Else 
+%token Var If Else 
 %token Do While 
-%token For ForEach
-%token In 
+%token For ForEach In 
 %token Switch Case Break Default 
 %token Continue
 %token Function Return 
@@ -76,10 +74,11 @@ DEF_TUPLE_OP(Token, Token);
 %token EQEQ NEQ                 /* == != */
 
 %type<token> Identifier TypeName
-%type<token> Initialiser Expression
+%type<token> Initialiser Expression MethodName
 %type<token> VariableDeclaration
 %type<token> AssignmentExpression ConditionalExpression
-%type<token> StatementList Statement
+%type<token> StatementList Statement SourceElements SourceElement
+%type<token> FunctionDeclaration
 %type<token> Block VariableStatement EmptyStatement
 %type<token> ExpressionStatement IfStatement
 %type<token> IterationStatement ContinueStatement
@@ -88,6 +87,10 @@ DEF_TUPLE_OP(Token, Token);
 %type<token> ThrowStatement TryStatement
 %type<token> Catch Finally
 %type<token> Expressionopt
+
+%type<token> Program
+%type<token> FormalParameterList FormalParameterListopt
+%type<token> FunctionBody
 
 %type<vec> Arguments ArgumentList VariableDeclarationList
 %type<op>  AssignmentOperator
@@ -123,15 +126,25 @@ NumericLiteral
     | FloatLiteral
     | HexIntegerLiteral;
 
-
 Program 
-    : /* not in spec */ 
-    | SourceElements 
+    : /* not in spec */ {}
+    | SourceElements {
+        write_global_script($1);
+        $$ = NULL;
+    }
 ;
 
 SourceElements
-    : SourceElement
-    | SourceElements SourceElement
+    : SourceElement {
+        knh_Token_t *stmts = new_TokenStmtList();
+        knh_TokenStmtList_add(stmts, $1);
+        $$ = stmts;
+    }
+    | SourceElements SourceElement {
+        knh_Token_t *stmts = $1;
+        knh_TokenStmtList_add(stmts, $2);
+        $$ = $1;
+    }
 ;
 
 SourceElement 
@@ -393,9 +406,11 @@ TypeName
 FunctionDeclaration
     : Function Identifier LCBRACE FormalParameterListopt RCBRACE LBRACE FunctionBody RBRACE {
         debug("FunctionDeclaration");
+        $$ = build_function_decl(NULL, $2, $4, $7);
     }
     | TypeName MethodName LCBRACE FormalParameterListopt RCBRACE LBRACE FunctionBody RBRACE {
         debug("FunctionDeclaration");
+        $$ = build_function_decl($1, $2, $4, $7);
     }
     ;
 
@@ -412,19 +427,20 @@ FormalParameterListopt
     | FormalParameterList
     ;
 
+TypeNameopt :TypeName
+    ;
+
 FormalParameterList
-    : Identifier {
+    : TypeNameopt Identifier {
+        Array(Token) *a = Array_new(Token);
+        //Array_add(TypedVariable($1, $2));
     }
-    | FormalParameterList CAMMA Identifier {
+    | FormalParameterList CAMMA TypeNameopt Identifier {
     }
 
 FunctionBody 
-    : {
-        debug("FunctionBody1");
-    }
-    |SourceElements {
-        debug("FunctionBody2");
-    }
+    : {}
+    |SourceElements
     ;
 
 PrimaryExpression 
