@@ -55,5 +55,8 @@ enum operator_code {
 
 #define Token_CODE(t) (t->code)
 #define Token_type(t) (t->type)
+#define Token_isConst(o) (Token_CODE(o) == INTEGER_CONST || \
+        Token_CODE(o) == FLOAT_CONST || \
+        Token_CODE(o) == STRING_CONST)
 
 #endif /* end of include guard: TOKEN_H */

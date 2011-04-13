@@ -404,14 +404,56 @@ knh_Token_t *build_foreach(knh_Token_t *type, knh_Token_t *var, knh_Token_t *itr
     return NULL;
 }
 
+#define T_DUMP(t) \
+    fprintf(stderr, "%s:%d:", __FILE__, __LINE__);\
+    type_is(O(t), TYPE_Token);\
+    knh_dump(ctx, O(t))
+
+static void asm_expr(Ctx *ctx, knh_Token_t *x);
 static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
 {
+    int i;
+    knh_Token_t *x;
+    FOR_EACH_TOKEN(stmt, x, i) {
+        asm_expr(ctx, x);
+    }
 }
 
 static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
 {
+    T_DUMP(stmt);
 }
 
+static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
+{
+    knh_Token_t *tmp;
+    Tuple(Token, Token) *tpl;
+    T_DUMP(stmt);
+    tpl = cast(Tuple(Token, Token)*, stmt->data.o);
+    if (!Token_isConst(tpl->o2)) {
+    } else {
+        tmp = tpl->o2;
+    }
+}
+
+static void asm_expr(Ctx *ctx, knh_Token_t *x)
+{
+    enum token_code code = Token_CODE(x);
+    switch(code) {
+        case STMT_LIST:
+            asm_stmt_list(ctx, x);
+            break;
+        case CALL_EXPR:
+            asm_call_expr(ctx, x);
+            break;
+        case VAR_DECL:
+            asm_decl(ctx, x);
+            break;
+        default:
+            asm volatile("int3");
+            konoha_error("???");
+    }
+}
 
 void write_global_script(knh_Token_t *stmt)
 {
@@ -420,19 +462,7 @@ void write_global_script(knh_Token_t *stmt)
     Ctx *ctx = g_ctx;
     token_check(stmt, code_is, STMT_LIST);
     FOR_EACH_TOKEN(stmt, x, i) {
-        enum token_code code = Token_CODE(x);
-        knh_dump(ctx, O(x));
-        switch(code) {
-            case STMT_LIST:
-                asm_stmt_list(ctx, x);
-                break;
-            case CALL_EXPR:
-                asm_call_expr(ctx, x);
-                break;
-            default:
-                asm volatile("int3");
-                konoha_error("???");
-        }
+        asm_expr(ctx, x);
     }
 }
 

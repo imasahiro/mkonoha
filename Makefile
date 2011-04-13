@@ -10,6 +10,7 @@ BISON=bison
 KONOHA=$(build)/minikonoha
 CFLAGS=-I$(build) -I. -O0 -g3 -Wall
 LDFLAGS=
+INCLUDES=
 KNH_HEADERS= \
 	konoha.h \
 	array.h  \
