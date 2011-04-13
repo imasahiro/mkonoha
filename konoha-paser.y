@@ -9,8 +9,8 @@ extern int yylex(void*);
 #define YYPARSE_PARAM ctx
 #define YYLEX_PARAM   ctx
 
-#define TODO() {\
-    konoha_error("TODO");\
+#define TODO(msg) {\
+    konoha_error("TODO." msg);\
     asm volatile("int3");\
 }
 #define debug0 debug
@@ -56,7 +56,7 @@ DEF_TUPLE_OP(Token, Token);
 %token This
 %token Try CATCH FINALLY Throw 
 %token Typeof Instanceof
-%token New
+%token New PRINT
 %token T_NULL T_TRUE T_FALSE
 %token IdentifierName
 %token HexIntegerLiteral IntegerLiteral FloatLiteral StringLiteral
@@ -73,7 +73,7 @@ DEF_TUPLE_OP(Token, Token);
 %token LSHIFT RSHIFT            /* << >> */
 %token EQEQ NEQ                 /* == != */
 
-%type<token> Identifier TypeName
+%type<token> Identifier TypeName IdentifierName
 %type<token> Initialiser Expression MethodName
 %type<token> VariableDeclaration
 %type<token> AssignmentExpression ConditionalExpression
@@ -85,13 +85,14 @@ DEF_TUPLE_OP(Token, Token);
 %type<token> BreakStatement ReturnStatement
 %type<token> LabelledStatement SwitchStatement
 %type<token> ThrowStatement TryStatement
+%type<token> MemberExpression
 %type<token> Catch Finally
 %type<token> Expressionopt
 
 %type<token> Program
-%type<token> FormalParameterList FormalParameterListopt
 %type<token> FunctionBody
 
+%type<vec> FormalParameterList FormalParameterListopt
 %type<vec> Arguments ArgumentList VariableDeclarationList
 %type<op>  AssignmentOperator
 
@@ -178,8 +179,12 @@ Expressionopt
     ;
 
 Block 
-    : LBRACE RBRACE {}
-    | LBRACE StatementList RBRACE {}
+    : LBRACE RBRACE {
+        TODO("block0");
+    }
+    | LBRACE StatementList RBRACE {
+        TODO("block1");
+    }
     ;
 
 StatementList 
@@ -405,11 +410,11 @@ TypeName
 
 FunctionDeclaration
     : Function Identifier LCBRACE FormalParameterListopt RCBRACE LBRACE FunctionBody RBRACE {
-        debug("FunctionDeclaration");
+        //debug("FunctionDeclaration");
         $$ = build_function_decl(NULL, $2, $4, $7);
     }
     | TypeName MethodName LCBRACE FormalParameterListopt RCBRACE LBRACE FunctionBody RBRACE {
-        debug("FunctionDeclaration");
+        //debug("FunctionDeclaration");
         $$ = build_function_decl($1, $2, $4, $7);
     }
     ;
@@ -427,15 +432,15 @@ FormalParameterListopt
     | FormalParameterList
     ;
 
-TypeNameopt :TypeName
-    ;
-
 FormalParameterList
-    : TypeNameopt Identifier {
+    : TypeName Identifier {
         Array(Token) *a = Array_new(Token);
-        //Array_add(TypedVariable($1, $2));
+        Array_add(Token, a, build_typed_variable($1, $2));
+        $$ = a;
     }
-    | FormalParameterList CAMMA TypeNameopt Identifier {
+    | FormalParameterList CAMMA TypeName Identifier {
+        Array(Token) *a = $1;
+        Array_add(Token, a, build_typed_variable($3, $4));
     }
 
 FunctionBody 
@@ -546,26 +551,33 @@ NewExpression
 
 CallExpression 
     : MemberExpression Arguments {
-        debug("CallExpression1");
+        $$ = build_call_expr($1, $2);
     }
     | CallExpression Arguments {
-        debug("CallExpression2");
+        $$ = build_call_expr($1, $2);
     }
     | CallExpression LPARENTHESIS Expression RPARENTHESIS {
         debug("CallExpression3");
     }
     | CallExpression DOT IdentifierName {
         debug("CallExpression4");
+        //$$ = build_call_expr($1, $2);
+    }
+    | PRINT ArgumentList {
+        /* TODO remove shift/reduce conflicts */
+        debug("CallExpression5");
+        knh_Token_t *print_node = konoha_build_id("print");
+        $$ = build_call_expr(print_node, $2);
     }
     ;
 
 Arguments 
     : LCBRACE RCBRACE {
-        debug("Arguments1");
+        //debug("Arguments1");
         $$ = Array_new(Token);
     }
     | LCBRACE ArgumentList RCBRACE {
-        debug("Arguments2");
+        //debug("Arguments2");
         $$ = $2;
     }
     ;
@@ -573,9 +585,12 @@ Arguments
 ArgumentList 
     : AssignmentExpression {
         $$ = Array_new(Token);
+        Array_add(Token, $$, $1);
+
     }
     | ArgumentList CAMMA AssignmentExpression {
         Array_add(Token, $1, $3);
+        $$ = $1;
     }
     ;
 
@@ -644,11 +659,11 @@ MultiplicativeExpression
 AdditiveExpression
     : MultiplicativeExpression
     | AdditiveExpression ADD MultiplicativeExpression {
-        debug0("AdditiveExpression1");
+        //debug0("AdditiveExpression1");
         $$ = build_operator2(OpPlus, $1, $3);
     }
     | AdditiveExpression SUB MultiplicativeExpression {
-        debug0("AdditiveExpression2");
+        //debug0("AdditiveExpression2");
         $$ = build_operator2(OpMinus, $1, $3);
     }
     ;

@@ -18,12 +18,6 @@ static char *buf_tochar(void);
 //static void konoha_unput (int, register char *);
 //static int input (void);
 
-knh_Token_t *konoha_build_id(const char *);
-knh_Token_t *konoha_build_int(int);
-knh_Token_t *konoha_build_float(float val);
-knh_Token_t *konoha_build_string(const char *);
-void knh_dump(CTX ctx, knh_Object_t *o);
-
 %}
 
 %pointer
@@ -69,6 +63,7 @@ void knh_dump(CTX ctx, knh_Object_t *o);
 <INITIAL>"catch"      return CATCH;
 <INITIAL>"finally"    return FINALLY;
 <INITIAL>"instanceof" return Instanceof;
+<INITIAL>"print"      return PRINT;
 
 <INITIAL>","       return CAMMA;
 <INITIAL>"."       return DOT;

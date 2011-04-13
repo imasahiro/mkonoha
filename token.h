@@ -8,7 +8,10 @@ enum token_code {
     INTEGER_CONST,
     FLOAT_CONST,
     STRING_CONST,
-    VAR_DECL, 
+    PARAM_DECL,
+    VAR_DECL,
+    FUNCTION_DECL,
+    CALL_EXPR,
     RETUEN_NODE, 
     TOKEN_CODE_MAX
 };
@@ -49,5 +52,8 @@ enum operator_code {
     OpDEC    ,
     OPERATOR_CODE_MAX
 };
+
+#define Token_CODE(t) (t->code)
+#define Token_type(t) (t->type)
 
 #endif /* end of include guard: TOKEN_H */

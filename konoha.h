@@ -38,6 +38,13 @@ typedef enum operator_code KOperator;
 DEF_ARRAY_T(Token);
 DEF_TUPLE_T(Token, Token);
 
+knh_Token_t *konoha_build_id(const char *);
+knh_Token_t *konoha_build_int(int);
+knh_Token_t *konoha_build_float(float val);
+knh_Token_t *konoha_build_string(knh_string_t *val);
+void knh_dump(CTX ctx, knh_Object_t *o);
+
+
 knh_Token_t *variable_decl(CTX ctx, knh_Token_t *type, Array(Token) *vec);
 knh_Token_t *knh_Token_toType(knh_Token_t *t);
 knh_Token_t *build_assignment(knh_Token_t *expr);
@@ -61,6 +68,8 @@ knh_Token_t *build_foreach(knh_Token_t *type, knh_Token_t *var, knh_Token_t *itr
 knh_Token_t *new_TokenStmtList(void);
 void knh_TokenStmtList_add(knh_Token_t *stmts, knh_Token_t *t);
 void write_global_script(knh_Token_t *stmt);
-knh_Token_t *build_function_decl(knh_Token_t *type, knh_Token_t *name, knh_Token_t *param, knh_Token_t *body);
+knh_Token_t *build_function_decl(knh_Token_t *type, knh_Token_t *name, Array(Token) *param, knh_Token_t *body);
+knh_Token_t *build_typed_variable(knh_Token_t *type, knh_Token_t *val);
+knh_Token_t *build_call_expr(knh_Token_t *func, Array(Token) *args);
 
 #endif /* end of include guard: KONOHA_H */

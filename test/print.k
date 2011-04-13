@@ -1,2 +1,2 @@
-v = 10;
+int v = 10;
 print v;

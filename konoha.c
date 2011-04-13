@@ -1,22 +1,22 @@
 #include "konoha.h"
 
 #define TYPE_(cid)       ((knh_class_t)(cid))
+#define TYPEINFO_(ctx, cid) ((ctx)->types+(cid))
 
 #define malloc_(len) (malloc(len))
+#define realloc_(ptr, len) (realloc(ptr, len))
 #define new_(T)      (knh_##T##_t *) __new(sizeof(knh_##T##_t), TYPE_##T)
 #define delete_(ptr) { \
     free(ptr); \
     ptr = NULL;\
 }
-#define copy_(T, v, size) ((T) __copy(v, size))
+#define copy_(T, v, size) ((T) __copy((void*)v, size))
 #define copy_1(T, v) copy_(T, v, sizeof(T))
 #define string_copy(s) (copy_(knh_string_t*, s, sizeof(knh_string_t) + s->len))
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
 #define FOR_EACH_STATIC(a, x, i) for(i=0, x = a; i < _ARRAY_SIZE(a); x=&a[(++i)])
 #define TODO() asm volatile("int3")
-#define FOR_EACH_ARRAY(a, x, i) \
-    for(i=0, x = a->list[0]; i < (a)->size; x=a->list[(++i)])
 
 #define FOR_EACH_TOKEN(stt, x, i) \
     FOR_EACH_ARRAY(((Array(Token)*)stt->data.o), x, i)
@@ -30,10 +30,15 @@ DEF_ARRAY_T(Tuple);
 DEF_ARRAY_STRUCT(Tuple);
 DEF_ARRAY_OP(Tuple);
 
+DEF_ARRAY_S_STRUCT(class);
+DEF_ARRAY_S_T(class);
+DEF_ARRAY_S_OP(class);
+
 struct type_info {
     const char *name;
     knh_class_t cid, bcid;
     knh_class_t suppercid;
+    Array(class) *param;
     void (*write_) (CTX ctx, FILE *fd, knh_Object_t *o);
 };
 
@@ -59,6 +64,7 @@ struct knh_Token_t {
 };
 
 static CTX new_context(void);
+static knh_class_t append_new_class(knh_class_t bcid, Array(class) *param);
 extern FILE *konoha_in;
 extern int konoha_parse(CTX ctx);
 static struct context *g_ctx = NULL;
@@ -398,26 +404,98 @@ knh_Token_t *build_foreach(knh_Token_t *type, knh_Token_t *var, knh_Token_t *itr
     return NULL;
 }
 
+static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
+{
+}
+
+static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
+{
+}
+
+
 void write_global_script(knh_Token_t *stmt)
 {
     int i;
     knh_Token_t *x;
+    Ctx *ctx = g_ctx;
     token_check(stmt, code_is, STMT_LIST);
     FOR_EACH_TOKEN(stmt, x, i) {
-        knh_dump(g_ctx, O(x));
+        enum token_code code = Token_CODE(x);
+        knh_dump(ctx, O(x));
+        switch(code) {
+            case STMT_LIST:
+                asm_stmt_list(ctx, x);
+                break;
+            case CALL_EXPR:
+                asm_call_expr(ctx, x);
+                break;
+            default:
+                asm volatile("int3");
+                konoha_error("???");
+        }
     }
 }
 
-knh_Token_t *build_function_decl(knh_Token_t *type, knh_Token_t *name, knh_Token_t *param, knh_Token_t *body)
+static knh_class_t build_function_type(knh_Token_t *rtype, Array(Token) *param);
+
+knh_Token_t *build_function_decl(knh_Token_t *type, knh_Token_t *name, Array(Token) *param, knh_Token_t *body)
 {
-    fprintf(stderr, "type\n");
-    knh_dump(g_ctx, O(type));
-    fprintf(stderr, "name\n");
-    knh_dump(g_ctx, O(name));
-    fprintf(stderr, "param\n");
-    knh_dump(g_ctx, O(param));
-    fprintf(stderr, "type\n");
-    knh_dump(g_ctx, O(body));
-    return NULL;
+    //fprintf(stderr, "type\n");
+    //knh_dump(g_ctx, O(type));
+    //fprintf(stderr, "name\n");
+    //knh_dump(g_ctx, O(name));
+    //fprintf(stderr, "param\n");
+    //knh_dump(g_ctx, O(param));
+    //fprintf(stderr, "type\n");
+    //knh_dump(g_ctx, O(body));
+
+    int i;
+    knh_Token_t *x, *t = new_(Token);
+    knh_class_t fn_type = build_function_type(type, param);
+    Array(Token) *a = Array_new(Token);
+    Array_add(Token, a, name);
+    Array_add(Token, a, body);
+
+    FOR_EACH_ARRAY(param, x, i) {
+        Array_add(Token, a, x);
+    }
+    t->code   = FUNCTION_DECL;
+    t->type   = fn_type;
+    t->data.o = O(a);
+    return t;
+}
+
+static knh_class_t build_function_type(knh_Token_t *rtype, Array(Token) *param)
+{
+    int i;
+    knh_Token_t *x;
+    knh_class_t rettype = (rtype)? rtype->type: TYPE_UNTYPED;
+    Array(class) *a = Array_new(class);
+    Array_add(class, a, rettype);
+    FOR_EACH_ARRAY(param, x, i) {
+        Array_add(class, a, x->type);
+    }
+    return append_new_class(TYPE_Method, a);
+}
+
+knh_Token_t *build_typed_variable(knh_Token_t *type, knh_Token_t *val)
+{
+    val->type = string_to_type(type->data.str);
+    return val;
+}
+
+knh_Token_t *build_call_expr(knh_Token_t *func, Array(Token) *args)
+{
+    int i;
+    knh_Token_t *x, *t = new_(Token);
+    Array(Token) *a = Array_new(Token);
+    Array_add(Token, a, func);
+    FOR_EACH_ARRAY(args, x, i) {
+        Array_add(Token, a, x);
+    }
+    t->code   = CALL_EXPR;
+    t->type   = TYPE_UNTYPED;
+    t->data.o = O(a);
+    return t;
 }
 
