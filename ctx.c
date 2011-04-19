@@ -188,11 +188,11 @@ static void construct_default_value(CTX ctx)
     }
 }
 
-static CTX new_context(void)
+static Ctx *new_context(void)
 {
     struct context *ctx = malloc_(sizeof(struct context));
     construct_default_value((CTX)ctx);
-    return (CTX)ctx;
+    return ctx;
 }
 
 static void push_decl(Ctx *ctx, Tuple(Token, Token) *t)

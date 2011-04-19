@@ -1,17 +1,9 @@
 #include "konoha.h"
+#include "memory.h"
 
 #define TYPE_(cid)       ((knh_class_t)(cid))
 #define TYPEINFO_(ctx, cid) ((ctx)->types+(cid))
 
-#define malloc_(len) (malloc(len))
-#define realloc_(ptr, len) (realloc(ptr, len))
-#define new_(T)      (knh_##T##_t *) __new(sizeof(knh_##T##_t), TYPE_##T)
-#define delete_(ptr) { \
-    free(ptr); \
-    ptr = NULL;\
-}
-#define copy_(T, v, size) ((T) __copy((void*)v, size))
-#define copy_1(T, v) copy_(T, v, sizeof(T))
 #define string_copy(s) (copy_(knh_string_t*, s, sizeof(knh_string_t) + s->len))
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
@@ -63,7 +55,7 @@ struct knh_Token_t {
     knh_value_t         data;
 };
 
-static CTX new_context(void);
+static Ctx *new_context(void);
 static knh_class_t append_new_class(knh_class_t bcid, Array(class) *param);
 extern FILE *konoha_in;
 extern int konoha_parse(CTX ctx);
@@ -301,6 +293,19 @@ knh_Token_t *build_assignment(knh_Token_t *expr)
     return NULL;
 }
 
+static knh_class_t typing2(knh_class_t dst, knh_class_t src)
+{
+    /* TODO typing token "t" */
+    return TYPE_UNTYPED;
+}
+
+static knh_class_t typing1(knh_class_t dst)
+{
+    /* TODO typing token "t" */
+    return TYPE_UNTYPED;
+}
+
+
 knh_Token_t *build_assignment_expr(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
 {
     knh_Token_t *t = new_(Token);
@@ -308,9 +313,7 @@ knh_Token_t *build_assignment_expr(KOperator op, knh_Token_t *t1, knh_Token_t *t
     Array_add(Token, a, t1);
     Array_add(Token, a, t2);
     t->code   = op;
-    /* TODO typing token "t" */
-    /* t->type   = typing(t1, t2); */
-    t->type   = TYPE_UNTYPED;
+    t->type   = typing2(t1->type, t2->type);
     t->data.o = O(a);
     return t;
 }
@@ -326,9 +329,7 @@ knh_Token_t *build_operator2(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
     Array_add(Token, a, t1);
     Array_add(Token, a, t2);
     t->code   = op;
-    /* TODO typing token "t" */
-    /* t->type   = typing(t1, t2); */
-    t->type   = TYPE_UNTYPED;
+    t->type   = typing2(t1->type, t2->type);
     t->data.o = O(a);
     return t;
 }
@@ -338,9 +339,7 @@ knh_Token_t *build_operator1(KOperator op, knh_Token_t *t1)
     Array(Token) *a = Array_new(Token);
     Array_add(Token, a, t1);
     t->code   = op;
-    /* TODO typing token "t" */
-    /* t->type   = typing(t1, t2); */
-    t->type   = TYPE_UNTYPED;
+    t->type   = typing1(t1->type);
     t->data.o = O(a);
     return t;
 }

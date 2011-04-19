@@ -21,6 +21,9 @@ struct context;
 typedef struct context Ctx;
 typedef const Ctx *const CTX;
 
+typedef long long int knh_int_t;
+typedef double        knh_float_t;
+
 int konoha_lex(CTX ctx);
 int konoha_error (const char *);
 void dbg_p(const char *file, const char *func, int line, const char *fmt, ...);
