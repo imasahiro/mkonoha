@@ -16,10 +16,10 @@ struct index_t {
 };
 
 typedef union knh_value {
-    void         *ptr;
-    int           ival;
-    double        fval;
     knh_data_t    dval;
+    knh_int_t     ival;
+    knh_float_t   fval;
+    void         *ptr;
     knh_string_t *str;
     knh_Object_t *o;
     struct index_t index;
@@ -45,6 +45,14 @@ struct knh_Object_t {
     void *ref2;
     void *ref3;
     void *ref4;
+};
+
+struct knh_ObjectField_t {
+    knh_hObject_t h;
+    knh_value_t *ox;
+    knh_value_t unused1;
+    knh_value_t unused2;
+    knh_value_t unused3;
 };
 
 enum object_type {

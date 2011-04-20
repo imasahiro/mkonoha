@@ -1,7 +1,97 @@
+enum opcode {
+    op_halt,
+    op_exit,
+    op_local_start,
+    op_local_end,
+    op_nmov,
+    op_nmovx,
+    op_xnmov,
+    op_xnmovx,
+    op_omov,
+    op_omovx,
+    op_xomov,
+    op_xomovx,
+    op_nset,
+    op_xnset,
+    op_oset,
+    op_xoset,
+    op_new,
+    op_box,
+    op_unbox,
+    op_iadd,
+    op_isub,
+    op_imul,
+    op_idiv,
+    op_imod,
+    op_icast,
+    op_ieq,
+    op_ine,
+    op_igt,
+    op_ilt,
+    op_ige,
+    op_ile,
+    op_iin,
+    op_inoin,
+    op_Jieq,
+    op_Jine,
+    op_Jigt,
+    op_Jilt,
+    op_Jige,
+    op_Jile,
+    op_Jiin,
+    op_Jinoin,
+    op_fadd,
+    op_fsub,
+    op_fmul,
+    op_fdiv,
+    op_fcast,
+    op_feq,
+    op_fne,
+    op_fgt,
+    op_flt,
+    op_fge,
+    op_fle,
+    op_Jfeq,
+    op_Jfne,
+    op_Jfgt,
+    op_Jflt,
+    op_Jfge,
+    op_Jfle,
+    op_fin,
+    op_fnoin,
+    op_Jfin,
+    op_Jfnoin,
+    op_call,
+    op_scall,
+    op_fcall,
+    op_rcall_v,
+    op_rcall_i,
+    op_rcall_p,
+    op_rcall_f,
+    op_ret,
+    op_jmp,
+    op_cast,
+    op_ogetidx,
+    op_osetidx,
+    op_ngetidx,
+    op_nsetidx,
+    op_thcode,
+    op_unused0,
+    op_unused1,
+    op_unused2,
+    op_unused3,
+    op_unused4,
+    op_unused5,
+    op_unused6,
+    op_unused7,
+    op_max
+};
+
+
 #define vmop_halt()                          _halt()
 #define vmop_exit()                          return
-#define vmop_local_start(i0)                 vm_local_new(vm, N(0))
-#define vmop_local_end(i0)                   vm_local_delete(vm, N(0))
+#define vmop_local_start(i0)                 vm_local_new(vm, NC(0))
+#define vmop_local_end(i0)                   vm_local_delete(vm, NC(0))
 #define vmop_nmov(i0, i1)                    N (0) = N (1)
 #define vmop_nmovx(i0, i1)                   N (0) = NX(1)
 #define vmop_xnmov(i0, i1)                   NX(0) = N (1)
@@ -67,13 +157,14 @@
 #define vmop_rcall_i(i0, i1, i2)             N(0) = ((fa1_i)P(1)) (NARG(0))
 #define vmop_rcall_p(i0, i1, i2)             P(0) = ((fa1_p)P(1)) (OARG(0))
 #define vmop_rcall_f(i0, i1, i2)             F(0) = ((fa1_f)P(1)) (FARG(0))
+#define vmop_ret(i0)                         RETv(vm) = V(0)
 #define vmop_jmp(i0)                         jmp(P(0))
 #define vmop_cast(i0, i1)                    O (0) = FCAST(0) (P(1), N(1))
 #define vmop_ngetidx(i0, i1, i2)             V (0) = Array_get(data,  NA(1), N(2))
 #define vmop_ogetidx(i0, i1, i2)             O (0) = Array_get(Object, OA(1), N(2))
 #define vmop_nsetidx(i0, i1, i2)             Array_set(data,  NA(1), N(2), V(0))
 #define vmop_osetidx(i0, i1, i2)             Array_set(Object, OA(1), N(2), O(0))
-#define vmop_thcode_init()                   __thcode_init(THCODE)
+#define vmop_thcode()                        __thcode_init(pc, THCODE); return
 #define vmop_unused0(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused1(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused2(i0)                     FUNC(0) (vm, pc)
