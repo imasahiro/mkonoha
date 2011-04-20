@@ -8,7 +8,7 @@ objs = \
 FLEX=flex
 BISON=bison
 KONOHA=$(build)/minikonoha
-CFLAGS=-I$(build) -I. -O0 -g3 -Wall
+CFLAGS=-I$(build) -I. -O0 -g3 -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -fno-common
 LDFLAGS=
 INCLUDES=
 KNH_HEADERS= \
@@ -35,9 +35,9 @@ build/konoha-paser.o : ./konoha-paser.y $(KNH_HEADERS)
 build/konoha.o : ./konoha.c $(KNH_HEADERS) ./ctx.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -c -o $@ $<
 
-vm : ./a.out
+vm : build/vmtest
 	
-a.out: ./vm.c $(KNH_HEADERS) ./vmcode.c ./vm_test.c ./vmop.h
+build/vmtest: ./test/vm_test.c ./vm.c $(KNH_HEADERS) ./vmcode.c ./vmop.h
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $<
 
 

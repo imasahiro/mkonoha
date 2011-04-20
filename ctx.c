@@ -87,7 +87,7 @@ static void Token_write(CTX ctx, FILE *fd, knh_Object_t *o)
             fprintf(fd, "id:%s", t->data.str->txt);
             break;
         case INTEGER_CONST:
-            fprintf(fd, "int:%d", t->data.ival);
+            fprintf(fd, "int:%lld", t->data.ival);
             break;
         case FLOAT_CONST:
             fprintf(fd, "float:%f", t->data.fval);

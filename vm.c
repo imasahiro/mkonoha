@@ -81,10 +81,6 @@ static vm_code_t *vm_code_init(vm_t *vm, vm_code_t *code)
     return code+1;
 }
 
-#ifndef KONOHA_VM
-#include "vm_test.c"
-#endif
-
 #define _OFF_I(idx) (idx.i)
 #define _OFF_X(idx) (idx.x)
 
@@ -143,7 +139,7 @@ static knh_Object_t *new_box(knh_class_t cid, knh_int_t i)
 {
     return NULL;
 }
-knh_int_t new_unbox(knh_class_t cid, knh_Object_t *o)
+static knh_int_t new_unbox(knh_class_t cid, knh_Object_t *o)
 {
     return 0;
 }
@@ -152,7 +148,7 @@ static void _halt(void)
 }
 
 static void** THCODE__;
-void __thcode_init(vm_code_t *pc, void **thcode)
+static void __thcode_init(vm_code_t *pc, void **thcode)
 {
     THCODE__ = thcode;
     while (pc->c.code != op_exit) {

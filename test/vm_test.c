@@ -1,10 +1,11 @@
-#include "test/test.h"
+#include "../vm.c"
+#include "test.h"
 
-int test_iadd_nset(void)
+#define __(n) {(knh_int_t)n}
+static int test_iadd_nset(void)
 {
     knh_data_t ret;
     vm_t *vm = vm_new();
-#define __(n) {(knh_int_t)n}
     vm_code_t *pc, code[] = {
         {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_nset),        __(3), __(9), __(0), __(0)},
@@ -13,7 +14,6 @@ int test_iadd_nset(void)
         {__(op_ret),         __(1), __(0), __(0), __(0)},
         {__(op_exit),        __(0), __(0), __(0), __(0)},
     };
-#undef __
     pc = vm_code_init(vm, code);
     vm_exec(vm, pc);
     ret = vm->r.ret.dval;
@@ -21,11 +21,10 @@ int test_iadd_nset(void)
     return ret == (9+8);
 }
 
-int test_fadd_nset(void)
+static int test_fadd_nset(void)
 {
     knh_float_t ret;
     vm_t *vm = vm_new();
-#define __(n) {(knh_int_t)n}
     knh_value_t v1, v2;
     v1.fval = 10.0;
     v2.fval = 20.0;
@@ -45,7 +44,7 @@ int test_fadd_nset(void)
     return ret == (10.0 + 20.0);
 }
 
-int test_local_start(void)
+static int test_local_start(void)
 {
     vm_t *vm = vm_new();
     void *sp = vm->sp;
@@ -73,7 +72,8 @@ int test_local_start(void)
     vm_delete(vm);
     return ret;
 }
-int test_icast_fcast(void)
+
+static int test_icast_fcast(void)
 {
     knh_float_t ret;
     vm_t *vm = vm_new();
@@ -109,7 +109,7 @@ int test_icast_fcast(void)
     return ret == (15.0);
 }
 
-int test_int_op(void)
+static int test_int_op(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;
@@ -139,7 +139,7 @@ int test_int_op(void)
     return 1;
 }
 
-int test_float_op(void)
+static int test_float_op(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;
@@ -175,7 +175,7 @@ static void fcall_test(vm_t *vm)
     vm->r.ret.ival = vm->r.reg[2].ival + vm->r.reg[3].ival + vm->r.reg[4].ival;
 }
 
-int test_fcall(void)
+static int test_fcall(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;
@@ -214,7 +214,7 @@ static knh_Object_t *ncall_test_p(knh_Object_t *o)
     return o;
 }
 
-int test_ncall(void)
+static int test_ncall(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;

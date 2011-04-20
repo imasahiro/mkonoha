@@ -7,7 +7,7 @@ struct testcase {
 };
 
 #define TESTCASE(f) {f, #f}
-int __test__(struct testcase *cases, int n)
+static int __test__(struct testcase *cases, int n)
 {
     struct testcase *x;
     int i;

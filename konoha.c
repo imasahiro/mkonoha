@@ -235,7 +235,7 @@ knh_Token_t *new_TokenStmtList(void)
     return t;
 }
 
-knh_Token_t *new_TokenStmtList__(Array(Token) *a)
+static knh_Token_t *new_TokenStmtList__(Array(Token) *a)
 {
     knh_Token_t *t = new_TokenStmtList();
     Array_delete(Token, (Array(Token) *)t->data.o);
