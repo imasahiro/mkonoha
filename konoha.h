@@ -41,6 +41,9 @@ typedef enum operator_code KOperator;
 DEF_ARRAY_T(Token);
 DEF_TUPLE_T(Token, Token);
 
+DEF_ARRAY_S_T(int);
+DEF_ARRAY_T(Object);
+
 knh_Token_t *konoha_build_id(const char *);
 knh_Token_t *konoha_build_int(int);
 knh_Token_t *konoha_build_float(float val);

@@ -3,18 +3,28 @@
 
 typedef intptr_t knh_class_t;
 typedef void knh_void_t;
+typedef int64_t knh_data_t;
 
 typedef struct knh_string_t {
     int  len;
     char txt[];
 } knh_string_t;
 
+struct index_t {
+    short i;
+    short x;
+};
+
 typedef union knh_value {
     void         *ptr;
     int           ival;
     double        fval;
+    knh_data_t    dval;
     knh_string_t *str;
     knh_Object_t *o;
+    struct index_t index;
+    struct knh_Method_t *mtd;
+    struct knh_ObjectField_t *ox;
 } knh_value_t;
 
 
