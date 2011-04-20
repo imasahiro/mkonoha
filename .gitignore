@@ -3,3 +3,4 @@ GRTAGS
 GTAGS
 build/*
 txt/
+a.out*

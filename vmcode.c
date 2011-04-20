@@ -1,7 +1,6 @@
 static void vm_exec(vm_t *vm, vm_code_t *pc)
 {
-    value_t _r[8];
-    register value_t *r = _r;
+    register value_t *r =   vm->r.reg;
     register value_t *arg = vm->r.arg;
     static void* THCODE[] = {
         &&L_op_halt,
@@ -28,6 +27,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
         &&L_op_imul,
         &&L_op_idiv,
         &&L_op_imod,
+        &&L_op_ipow,
         &&L_op_icast,
         &&L_op_ieq,
         &&L_op_ine,
@@ -49,6 +49,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
         &&L_op_fsub,
         &&L_op_fmul,
         &&L_op_fdiv,
+        &&L_op_fpow,
         &&L_op_fcast,
         &&L_op_feq,
         &&L_op_fne,
@@ -69,10 +70,10 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
         &&L_op_call,
         &&L_op_scall,
         &&L_op_fcall,
-        &&L_op_rcall_v,
-        &&L_op_rcall_i,
-        &&L_op_rcall_p,
-        &&L_op_rcall_f,
+        &&L_op_ncall_v,
+        &&L_op_ncall_i,
+        &&L_op_ncall_p,
+        &&L_op_ncall_f,
         &&L_op_ret,
         &&L_op_jmp,
         &&L_op_cast,
@@ -115,6 +116,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     L(imul        ) {_arg3(vmop_imul        );}
     L(idiv        ) {_arg3(vmop_idiv        );}
     L(imod        ) {_arg3(vmop_imod        );}
+    L(ipow        ) {_arg2(vmop_ipow        );}
     L(icast       ) {_arg2(vmop_icast       );}
     L(ieq         ) {_arg3(vmop_ieq         );}
     L(ine         ) {_arg3(vmop_ine         );}
@@ -136,6 +138,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     L(fsub        ) {_arg3(vmop_fsub        );}
     L(fmul        ) {_arg3(vmop_fmul        );}
     L(fdiv        ) {_arg3(vmop_fdiv        );}
+    L(fpow        ) {_arg2(vmop_fpow        );}
     L(fcast       ) {_arg2(vmop_fcast       );}
     L(feq         ) {_arg3(vmop_feq         );}
     L(fne         ) {_arg3(vmop_fne         );}
@@ -156,10 +159,10 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     L(call        ) {_arg3(vmop_call        );}
     L(scall       ) {_arg3(vmop_scall       );}
     L(fcall       ) {_arg3(vmop_fcall       );}
-    L(rcall_v     ) {_arg3(vmop_rcall_v     );}
-    L(rcall_i     ) {_arg3(vmop_rcall_i     );}
-    L(rcall_p     ) {_arg3(vmop_rcall_p     );}
-    L(rcall_f     ) {_arg3(vmop_rcall_f     );}
+    L(ncall_v     ) {_arg3(vmop_ncall_v     );}
+    L(ncall_i     ) {_arg3(vmop_ncall_i     );}
+    L(ncall_p     ) {_arg3(vmop_ncall_p     );}
+    L(ncall_f     ) {_arg3(vmop_ncall_f     );}
     L(ret         ) {_arg1(vmop_ret         );}
     L(jmp         ) {_arg1(vmop_jmp         );}
     L(cast        ) {_arg2(vmop_cast        );}

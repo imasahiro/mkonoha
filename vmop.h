@@ -23,6 +23,7 @@ enum opcode {
     op_imul,
     op_idiv,
     op_imod,
+    op_ipow,
     op_icast,
     op_ieq,
     op_ine,
@@ -44,6 +45,7 @@ enum opcode {
     op_fsub,
     op_fmul,
     op_fdiv,
+    op_fpow,
     op_fcast,
     op_feq,
     op_fne,
@@ -64,10 +66,10 @@ enum opcode {
     op_call,
     op_scall,
     op_fcall,
-    op_rcall_v,
-    op_rcall_i,
-    op_rcall_p,
-    op_rcall_f,
+    op_ncall_v,
+    op_ncall_i,
+    op_ncall_p,
+    op_ncall_f,
     op_ret,
     op_jmp,
     op_cast,
@@ -112,6 +114,7 @@ enum opcode {
 #define vmop_imul(i0, i1, i2)                N (0) = N(1) * N(2)
 #define vmop_idiv(i0, i1, i2)                N (0) = N(1) / N(2)
 #define vmop_imod(i0, i1, i2)                N (0) = N(1) % N(2)
+#define vmop_ipow(i0, i1)                    N (0) = N(1) * N(1)
 #define vmop_icast(i0, i1)                   N (0) = (knh_int_t) F(1)
 #define vmop_ieq(i0, i1, i2)                 N (0) = N(1) == N(2)
 #define vmop_ine(i0, i1, i2)                 N (0) = N(1) != N(2)
@@ -133,6 +136,7 @@ enum opcode {
 #define vmop_fsub(i0, i1, i2)                F (0) = F(1) - F(2)
 #define vmop_fmul(i0, i1, i2)                F (0) = F(1) * F(2)
 #define vmop_fdiv(i0, i1, i2)                F (0) = F(1) / F(2)
+#define vmop_fpow(i0, i1)                    F (0) = F(1) * F(1)
 #define vmop_fcast(i0, i1)                   F (0) = (knh_float_t)N(1)
 #define vmop_feq(i0, i1, i2)                 F (0) = F(1) == F(2)
 #define vmop_fne(i0, i1, i2)                 F (0) = F(1) != F(2)
@@ -152,11 +156,11 @@ enum opcode {
 #define vmop_Jfnoin(i0, i1, i2, i3)          if (N(1) <= N(2) && N(3) <= N(1)) jmp(P(0))
 #define vmop_call(i0, i1, i2)                MTD(1)->call(vm, MTD(1)->pc);  P(0) = RET(vm)
 #define vmop_scall(i0, i1, i2)               ((fvm2)P(2)) (vm, MTD(1)->pc); P(0) = RET(vm)
-#define vmop_fcall(i0, i1, i2)               ((fvm)P(2)) (vm); P(0) = RET(vm)
-#define vmop_rcall_v(i0, i1, i2)             ((fa1_v)P(1)) ()
-#define vmop_rcall_i(i0, i1, i2)             N(0) = ((fa1_i)P(1)) (NARG(0))
-#define vmop_rcall_p(i0, i1, i2)             P(0) = ((fa1_p)P(1)) (OARG(0))
-#define vmop_rcall_f(i0, i1, i2)             F(0) = ((fa1_f)P(1)) (FARG(0))
+#define vmop_fcall(i0, i1, i2)               ((fvm)OC(2)) (vm); P(0) = RET(vm)
+#define vmop_ncall_v(i0, i1, i2)             ((fa1_v)OC(2)) ()
+#define vmop_ncall_i(i0, i1, i2)             N(0) = ((fa1_i)OC(2)) (NARG(0))
+#define vmop_ncall_p(i0, i1, i2)             P(0) = ((fa1_p)OC(2)) (OARG(0))
+#define vmop_ncall_f(i0, i1, i2)             F(0) = ((fa1_f)OC(2)) (FARG(0))
 #define vmop_ret(i0)                         RETv(vm) = V(0)
 #define vmop_jmp(i0)                         jmp(P(0))
 #define vmop_cast(i0, i1)                    O (0) = FCAST(0) (P(1), N(1))

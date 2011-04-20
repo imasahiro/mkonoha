@@ -26,6 +26,7 @@ typedef struct {
 } vm_code_t;
 
 #define VM_MAX_REG_SIZE 16
+#define VM_REG_SIZE     8
 typedef struct vm_t {
     union {
         value_t regs_[VM_MAX_REG_SIZE];
@@ -37,6 +38,22 @@ typedef struct vm_t {
     };
     void *sp;
 } vm_t;
+
+typedef void (*fvm)(vm_t *);
+typedef void (*fvm2)(vm_t *, vm_code_t *);
+typedef knh_Object_t *(*fcast)(knh_Object_t *o1, knh_int_t v);
+typedef void (*fa1_v)(void);
+typedef knh_int_t     (*fa1_i)(knh_int_t);
+typedef knh_float_t   (*fa1_f)(knh_float_t);
+typedef knh_Object_t *(*fa1_p)(knh_Object_t*);
+struct knh_Method_t {
+    knh_hObject_t h;
+    fvm2 call;
+    vm_code_t *pc;
+};
+
+
+
 
 static void vm_exec(vm_t *vm, vm_code_t *pc);
 
@@ -94,19 +111,6 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 #define _arg2(f) VM_DBG_P(#f, pc);__a2(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
 #define _arg3(f) VM_DBG_P(#f, pc);__a3(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
 #define _arg4(f) VM_DBG_P(#f, pc);__a4(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
-
-typedef void (*fvm)(vm_t *);
-typedef void (*fvm2)(vm_t *, vm_code_t *);
-typedef knh_Object_t *(*fcast)(knh_Object_t *o1, knh_int_t v);
-typedef void (*fa1_v)(void);
-typedef knh_int_t     (*fa1_i)(knh_int_t);
-typedef knh_float_t   (*fa1_f)(knh_float_t);
-typedef knh_Object_t *(*fa1_p)(knh_Object_t*);
-struct knh_Method_t {
-    knh_hObject_t h;
-    fvm2 call;
-    vm_code_t *pc;
-};
 
 #undef O
 #define A(i)         (pc->a ## i)

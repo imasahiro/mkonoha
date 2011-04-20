@@ -170,6 +170,81 @@ int test_float_op(void)
     return 1;
 }
 
+static void fcall_test(vm_t *vm)
+{
+    vm->r.ret.ival = vm->r.reg[2].ival + vm->r.reg[3].ival + vm->r.reg[4].ival;
+}
+
+int test_fcall(void)
+{
+    vm_t *vm = vm_new();
+    vm_code_t *pc;
+#define __(n) {(knh_int_t)n}
+    vm_code_t code [] = {
+        {__(op_thcode),      __(0), __(0), __(0), __(0)},
+        {__(op_nset),        __(2), __(10), __(0), __(0)},
+        {__(op_nset),        __(3), __(20), __(0), __(0)},
+        {__(op_nset),        __(4), __(30), __(0), __(0)},
+        {__(op_fcall),       __(1), __(0), __(fcall_test), __(0)},
+        {__(op_ret),         __(1), __(0), __(0), __(0)},
+        {__(op_exit),        __(0), __(0), __(0), __(0)},
+    };
+    pc = vm_code_init(vm, code);
+    vm_exec(vm, pc);
+    if (vm->r.ret.ival != 10 + 20 + 30) return 0;
+#undef _code_
+#undef __
+    vm_delete(vm);
+    return 1;
+}
+
+static void ncall_test_v(void)
+{
+}
+static knh_int_t ncall_test_i(knh_int_t i)
+{
+    return i;
+}
+static knh_float_t ncall_test_f(knh_float_t f)
+{
+    return f;
+}
+static knh_Object_t *ncall_test_p(knh_Object_t *o)
+{
+    return o;
+}
+
+int test_ncall(void)
+{
+    vm_t *vm = vm_new();
+    vm_code_t *pc;
+#define RARG(n) (VM_REG_SIZE + 1 + n)
+#define __(n) {(knh_int_t)n}
+#define _code_(n, op, f, v1, v2, v3, v, rval) \
+    vm_code_t code##n [] = {\
+        {__(op_thcode),      __(0), __(0),  __(0), __(0)},\
+        {__(op_nset),        __(RARG(0)), __(v1), __(0), __(0)},\
+        {__(op_nset),        __(RARG(1)), __(v2), __(0), __(0)},\
+        {__(op_nset),        __(RARG(2)), __(v3), __(0), __(0)},\
+        {__(op_ncall_##op),  __(1), __(0),  __(f), __(0)},\
+        {__(op_ret),         __(1), __(0),  __(0), __(0)},\
+        {__(op_exit),        __(0), __(0),  __(0), __(0)},\
+    };\
+    pc = vm_code_init(vm, code##n);\
+    vm_exec(vm, pc);\
+    if (vm->r.ret.rval != v) return 0;
+    knh_value_t v1, v2, v3;
+    v1.fval = 10.0;v1.fval = 20.0;v1.fval = 30.0;
+    _code_(0, v, ncall_test_v, 0, 0, 0, 0, dval);
+    _code_(1, i, ncall_test_i, 10, 20, 30, 10, ival);
+    _code_(2, f, ncall_test_f, v1.dval, v2.dval, v3.dval, v1.fval, fval);
+    _code_(3, p, ncall_test_p, 10, 20, 30, 10, dval);
+#undef _code_
+#undef __
+    vm_delete(vm);
+    return 1;
+}
+
 static struct testcase __TESTCASE__[] = {
     TESTCASE(test_iadd_nset),
     TESTCASE(test_fadd_nset),
@@ -177,6 +252,8 @@ static struct testcase __TESTCASE__[] = {
     TESTCASE(test_icast_fcast),
     TESTCASE(test_int_op),
     TESTCASE(test_float_op),
+    TESTCASE(test_fcall),
+    TESTCASE(test_ncall),
 };
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))

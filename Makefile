@@ -35,6 +35,12 @@ build/konoha-paser.o : ./konoha-paser.y $(KNH_HEADERS)
 build/konoha.o : ./konoha.c $(KNH_HEADERS) ./ctx.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -c -o $@ $<
 
+vm : ./a.out
+	
+a.out: ./vm.c $(KNH_HEADERS) ./vmcode.c ./vm_test.c ./vmop.h
+	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $<
+
+
 .PHONY: clean
 clean:
 	-rm -f $(build)/*.o $(build)/y.gen.{c,h} $(build)/lexer.gen.c
