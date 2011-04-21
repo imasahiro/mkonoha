@@ -253,3 +253,39 @@ int main(int argc, char **argv)
     return 0;
 }
 
+static int ___(void)
+{
+    knh_data_t ret;
+    vm_t *vm = vm_new();
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder();
+    vm_code_t *pc;
+    vm_code_t *label1;
+    cb->nset(cb, Reg3, 9);
+    cb->nset(cb, Reg2, 8);
+    cb->iadd(cb, Reg2, Reg3);
+    cb->ret(cb,  Reg2);
+
+    pc = cb->emit_code(cb);
+    /*
+    if (i < 10) {
+        ret 20;
+    } else {
+        ret 30;
+    }
+    */
+    struct label l1;
+    cb->nset(cb, Reg3, 10);
+    cb->jilt(cb, &l1, Arg0, Reg3);
+    cb->nset(cb, Reg1, 20);
+    cb->ret(cb,  Reg1);
+    cb->bind(cb, &l1);
+    cb->nset(cb, Reg1, 20);
+    cb->ret(cb,  Reg1);
+    pc = cb->emit_code(cb);
+
+    ret = vm->r.ret.dval;
+    vm_delete(vm);
+    return ret == (9+8);
+}
+

@@ -1,6 +1,7 @@
 #include "konoha.h"
 #include "memory.h"
 #include "stream.h"
+#include "vm.h"
 #ifndef TEST
 #define KONOHA
 #endif
@@ -26,8 +27,8 @@ DEF_ARRAY_T(Tuple);
 DEF_ARRAY_STRUCT(Tuple);
 DEF_ARRAY_OP(Tuple);
 
-DEF_ARRAY_S_STRUCT(class);
 DEF_ARRAY_S_T(class);
+DEF_ARRAY_S_STRUCT(class);
 DEF_ARRAY_S_OP(class);
 
 struct type_info {
@@ -44,6 +45,7 @@ struct context {
     struct alias_info *alias;
     int alias_size;
     Array(Tuple) *decl_list;
+    struct vm *vm;
     struct io *out;
     struct io *err;
     struct io *in;
@@ -544,3 +546,4 @@ knh_Token_t *build_call_expr(knh_Token_t *func, Array(Token) *args)
 }
 
 #include "stream.c"
+#include "vm.c"

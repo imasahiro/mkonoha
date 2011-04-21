@@ -202,7 +202,19 @@ static Ctx *new_context(void)
     construct_default_value((CTX)ctx);
     stream_init();
     context_init_stream(ctx);
+    ctx->vm = vm_new();
     return ctx;
+}
+
+static void context_delete(struct context *ctx)
+{
+    delete_(ctx->types);
+    delete_(ctx->alias);
+    io_delete(ctx->in);
+    io_delete(ctx->out);
+    io_delete(ctx->err);
+    vm_delete(ctx->vm);
+    delete_(ctx);
 }
 
 static void push_decl(Ctx *ctx, Tuple(Token, Token) *t)

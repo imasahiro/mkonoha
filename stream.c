@@ -41,6 +41,12 @@ static struct io *new_io(const char *name, const char *mode, int iotype)
     return io;
 }
 
+static void io_delete(struct io *io)
+{
+    io->sync_(io);
+    io->close_(io);
+}
+
 #define FILE_(io)  ((FILE*)(io)->data_)
 #define FILE_BUF_SIZE 1024
 struct fileblock {
@@ -116,12 +122,6 @@ static int FILE_write_(struct io *io, struct iobuf *buf)
     return size;
 }
 
-static void FILE_close_(struct io *io)
-{
-    FILE *fp = FILE_(io);
-    fclose(fp);
-}
-
 static void FILE_sync_ (struct io *io)
 {
     FILE *fp = FILE_(io);
@@ -130,6 +130,14 @@ static void FILE_sync_ (struct io *io)
         fwrite(iobuf->buf, iobuf->pos, 1, fp);
         iobuf->pos = 0;
     }
+}
+
+static void FILE_close_(struct io *io)
+{
+    FILE *fp = FILE_(io);
+    FILE_sync_(io);
+    fclose(fp);
+    delete_(io);
 }
 
 #define IODRV_SET(io, r, w, c, s) {\

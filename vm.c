@@ -5,8 +5,12 @@
 #include "konoha.h"
 #include "memory.h"
 #include "vmop.h"
+#include "vm.h"
 
 typedef knh_value_t value_t;
+typedef struct vm vm_t;
+typedef struct vm_code vm_code_t;
+
 typedef struct knh_ObjectField_t knh_ObjectField_t;
 DEF_ARRAY_S_T(data);
 DEF_ARRAY_S_STRUCT(data);
@@ -15,7 +19,7 @@ DEF_ARRAY_S_OP(data);
 DEF_ARRAY_STRUCT(Object);
 DEF_ARRAY_OP(Object);
 
-typedef struct {
+struct vm_code {
     union {
         intptr_t code;
         void *addr;
@@ -24,12 +28,12 @@ typedef struct {
     value_t a1;
     value_t a2;
     value_t a3;
-} vm_code_t;
+};
 
 #define __(n) {(knh_int_t)n}
 #define VM_MAX_REG_SIZE 16
 #define VM_REG_SIZE     8
-typedef struct vm_t {
+struct vm {
     union {
         value_t regs_[VM_MAX_REG_SIZE];
         struct {
@@ -39,7 +43,7 @@ typedef struct vm_t {
         } r;
     };
     void *sp;
-} vm_t;
+};
 
 typedef void (*fvm)(vm_t *);
 typedef void (*fvm2)(vm_t *, vm_code_t *);
@@ -54,17 +58,12 @@ struct knh_Method_t {
     vm_code_t *pc;
 };
 
-static vm_t *vm_new(void);
-static void vm_delete(vm_t *vm);
-static void vm_exec(vm_t *vm, vm_code_t *pc);
 static bool vm_code_isInited(void);
 static void exit_with_msg(const char *msg)
 {
     fprintf(stderr, "%s\n", msg);
     exit(EXIT_FAILURE);
 }
-
-static vm_code_t *vm_code_init(vm_t *vm, vm_code_t *code);
 
 static vm_t *vm_new(void)
 {
