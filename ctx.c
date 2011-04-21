@@ -1,28 +1,28 @@
 
 
-static void type_write(CTX ctx, FILE *fd, knh_class_t cid)
+static void type_write(CTX ctx, struct io *io, knh_class_t cid)
 {
     struct type_info *typeinfo = ctx->types + cid;
-    fprintf(fd, "%s", typeinfo->name);
+    io_printf(io, 1, "%s", typeinfo->name);
     if (typeinfo->param) {
         int i;
         knh_class_t x;
-        fputs("<", fd);
+        io_puts(io, "<", 1);
         FOR_EACH_ARRAY_INIT(typeinfo->param, x, i, i=1) {
             if (i != 1)
-                fputs(",", fd);
-            type_write(ctx, fd, x);
+                io_puts(io, ",", 1);
+            type_write(ctx, io, x);
         }
-        fputs("=>", fd);
-        type_write(ctx, fd, Array_n(typeinfo->param, 0));
-        fputs(">", fd);
+        io_puts(io, "=>", 2);
+        type_write(ctx, io, Array_n(typeinfo->param, 0));
+        io_puts(io, ">", 1);
     }
 }
 
-static void default_write(CTX ctx, FILE *fd, knh_Object_t *o)
+static void default_write(CTX ctx, struct io *io, knh_Object_t *o)
 {
     struct type_info *typeinfo = ctx->types + o->h.classinfo;
-    fprintf(fd, "%s(%p)\n", typeinfo->name, o);
+    io_printf(io, 2, "%s(%p)\n", typeinfo->name, o);
 }
 static const char * operator_code_string[] = {
     "undef",
@@ -60,62 +60,64 @@ static const char * operator_code_string[] = {
     "--",
 };
 
-static void Token_write(CTX ctx, FILE *fd, knh_Object_t *o)
+#define io_puts2(io, ctxt) io_puts(io, ctxt, \
+        __builtin_constant_p(ctxt)?sizeof(ctxt):strlen(ctxt))
+static void Token_write(CTX ctx, struct io *io, knh_Object_t *o)
 {
     knh_Token_t *t = cast(knh_Token_t*, o);
     enum token_code code = Token_CODE(t);
-    fprintf(fd, "Token(");
+    io_puts2(io, "Token(");
     switch(code) {
         case STMT_LIST:
         {
             int i;
             knh_Token_t *x;
-            fputs("stmt_list [", fd);
+            io_puts2(io, "stmt_list [");
             FOR_EACH_TOKEN(t, x, i) {
-                if (i != 0) fputs(", ", fd);
-                Token_write(ctx, fd, O(x));
+                if (i != 0) io_puts2(io, ", ");
+                Token_write(ctx, io, O(x));
             }
-            fputs("]", fd);
+            io_puts2(io, "]");
             break;
         }
         case TYPE_NODE:
-            fprintf(fd, "type(");
-            type_write(ctx, fd, Token_type(t));
-            fprintf(fd, ")");
+            io_puts2(io, "type(");
+            type_write(ctx, io, Token_type(t));
+            io_puts2(io, ")");
             break;
         case IDENTIFIER_NODE:
-            fprintf(fd, "id:%s", t->data.str->txt);
+            io_printf(io, 1, "id:%s", t->data.str->txt);
             break;
         case INTEGER_CONST:
-            fprintf(fd, "int:%lld", t->data.ival);
+            io_printf(io, 1, "int:%lld", t->data.ival);
             break;
         case FLOAT_CONST:
-            fprintf(fd, "float:%f", t->data.fval);
+            io_printf(io, 1, "float:%f", t->data.fval);
             break;
         case STRING_CONST:
-            fputs("string:", fd);
+            io_puts2(io, "string:");
             break;
         case RETUEN_NODE:
-            fputs("return:", fd);
-            Token_write(ctx, fd, O(t->data.o));
+            io_puts2(io, "return:");
+            Token_write(ctx, io, O(t->data.o));
             break;
 
         case FUNCTION_DECL:
         {
             Array(Token) *a = ((Array(Token)*)t->data.o);
-            fputs("function_decl:", fd);
-            Token_write(ctx, fd, O(Array_n(a, 0)));
-            fputs(" ", fd);
-            type_write(ctx, fd, Token_type(t));
+            io_puts2(io, "function_decl:");
+            Token_write(ctx, io, O(Array_n(a, 0)));
+            io_puts2(io, " ");
+            type_write(ctx, io, Token_type(t));
             break;
         }
         case VAR_DECL:
         {
             Tuple(Token, Token) *tpl = (Tuple(Token, Token)*)t->data.o;
-            fputs("var_decl:", fd);
-            Token_write(ctx, fd, O(tpl->o1));
-            fputs(":=", fd);
-            Token_write(ctx, fd, O(tpl->o2));
+            io_puts2(io, "var_decl:");
+            Token_write(ctx, io, O(tpl->o1));
+            io_puts2(io, ":=");
+            Token_write(ctx, io, O(tpl->o2));
             break;
         }
         case CALL_EXPR:
@@ -123,33 +125,33 @@ static void Token_write(CTX ctx, FILE *fd, knh_Object_t *o)
             int i;
             knh_Token_t  *x;
             Array(Token) *a = ((Array(Token)*)t->data.o);
-            fputs("call:", fd);
+            io_puts2(io, "call:");
             FOR_EACH_ARRAY(a, x, i) {
                 if (i == 0) {
-                    Token_write(ctx, fd, O(x));
-                    fputs("(", fd);
+                    Token_write(ctx, io, O(x));
+                    io_puts2(io,"(");
                 }
                 else {
-                    if (i != 1) fputs(",", fd);
-                    Token_write(ctx, fd, O(x));
+                    if (i != 1) io_puts2(io, ",");
+                    Token_write(ctx, io, O(x));
                 }
             }
-            fputs(")", fd);
+            io_puts2(io, ")");
             break;
         }
 
         default:
             if (code >= TOKEN_CODE_MAX) {
                 Array(Token) *a = ((Array(Token)*)t->data.o);
-                Token_write(ctx, fd, O(Array_n(a, 0)));
-                fputs(operator_code_string[code - TOKEN_CODE_MAX], fd);
+                Token_write(ctx, io, O(Array_n(a, 0)));
+                io_puts2(io,operator_code_string[code - TOKEN_CODE_MAX]);
                 if (Array_size(a) > 1) {
-                    Token_write(ctx, fd, O(Array_n(a, 1)));
+                    Token_write(ctx, io, O(Array_n(a, 1)));
                 }
             }
             break;
     }
-    fputs(")", fd);
+    io_puts2(io, ")");
 }
 
 
@@ -187,11 +189,19 @@ static void construct_default_value(CTX ctx)
         ((struct context *)ctx)->alias_size = alias_size;
     }
 }
+static void context_init_stream(struct context *ctx)
+{
+    ((struct context *)ctx)->in  = new_io("/dev/stdin",  "r", 0);
+    ((struct context *)ctx)->out = new_io("/dev/stdout", "w", 0);
+    ((struct context *)ctx)->err = new_io("/dev/stderr", "w", 0);
 
+}
 static Ctx *new_context(void)
 {
     struct context *ctx = malloc_(sizeof(struct context));
     construct_default_value((CTX)ctx);
+    stream_init();
+    context_init_stream(ctx);
     return ctx;
 }
 

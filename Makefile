@@ -15,10 +15,12 @@ KNH_HEADERS= \
 	konoha.h \
 	array.h  \
 	tuple.h  \
+	stream.h  \
 
+bin = $(build)/vmtest $(KONOHA)
 
 .PHONY: all
-all : $(KONOHA)
+all : $(bin)
 
 $(KONOHA) : $(objs) $(KNH_HEADERS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(KONOHA) $(objs)
@@ -32,16 +34,14 @@ build/konoha-paser.o : ./konoha-paser.y $(KNH_HEADERS)
 	$(BISON) -p konoha_ --defines=build/y.gen.h --output=build/y.gen.c $<
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -c -o $@ build/y.gen.c
 
-build/konoha.o : ./konoha.c $(KNH_HEADERS) ./ctx.c
+build/konoha.o : ./konoha.c $(KNH_HEADERS) ./ctx.c ./stream.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -c -o $@ $<
 
-vm : build/vmtest
-	
-build/vmtest: ./test/vm_test.c ./vm.c $(KNH_HEADERS) ./vmcode.c ./vmop.h
+build/vmtest: ./test/vm_test.c ./vm.c $(KNH_HEADERS) ./vmop.h
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $<
 
 
 .PHONY: clean
 clean:
-	-rm -f $(build)/*.o $(build)/y.gen.{c,h} $(build)/lexer.gen.c
+	-rm -f $(build)/*.o $(build)/y.gen.{c,h} $(build)/lexer.gen.c $(bin)
 

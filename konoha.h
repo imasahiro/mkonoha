@@ -8,6 +8,8 @@
 #include <string.h>
 #include <assert.h>
 
+#define IO_DEBUG 1
+
 #define cast(T, p) ((T) p)
 #define KNH_T(T) knh_##T##_t
 

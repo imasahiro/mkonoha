@@ -1,10 +1,11 @@
 %{
 
 #include "konoha.h"
+#define ctx_() ((CTX)ctx)
 
 #ifndef yyparse
-extern int yyparse(void*);
-extern int yylex(void*);
+extern int yyparse(CTX);
+extern int yylex(CTX);
 #endif
 #define YYPARSE_PARAM ctx
 #define YYLEX_PARAM   ctx
@@ -201,10 +202,10 @@ StatementList
 
 VariableStatement 
     : Var VariableDeclarationList SEMICOLON {
-        $$ = variable_decl(ctx, NULL, $2);
+        $$ = variable_decl(ctx_(), NULL, $2);
     }
     | TypeName VariableDeclarationList SEMICOLON {
-        $$ = variable_decl(ctx, $1, $2);
+        $$ = variable_decl(ctx_(), $1, $2);
     }
     ;
 

@@ -1,5 +1,9 @@
 #include "konoha.h"
 #include "memory.h"
+#include "stream.h"
+#ifndef TEST
+#define KONOHA
+#endif
 
 #define TYPE_(cid)       ((knh_class_t)(cid))
 #define TYPEINFO_(ctx, cid) ((ctx)->types+(cid))
@@ -31,7 +35,7 @@ struct type_info {
     knh_class_t cid, bcid;
     knh_class_t suppercid;
     Array(class) *param;
-    void (*write_) (CTX ctx, FILE *fd, knh_Object_t *o);
+    void (*write_) (CTX ctx, struct io *io, knh_Object_t *o);
 };
 
 struct context {
@@ -40,6 +44,9 @@ struct context {
     struct alias_info *alias;
     int alias_size;
     Array(Tuple) *decl_list;
+    struct io *out;
+    struct io *err;
+    struct io *in;
 };
 
 struct alias_info {
@@ -61,6 +68,7 @@ extern FILE *konoha_in;
 extern int konoha_parse(CTX ctx);
 static struct context *g_ctx = NULL;
 
+#ifdef KONOHA
 int main(int argc, char **argv)
 {
     if (argc >= 2) {
@@ -75,6 +83,7 @@ int main(int argc, char **argv)
         return 0;
     }
 }
+#endif
 
 static inline void *__new(size_t size, knh_class_t cid)
 {
@@ -114,8 +123,8 @@ void dbg_p(const char *file, const char *func, int line, const char *fmt, ...)
 void knh_dump(CTX ctx, knh_Object_t *o)
 {
     struct type_info *typeinfo = ctx->types + o->h.classinfo;
-    typeinfo->write_(ctx, stderr, o);
-    fputs("\n", stderr);
+    typeinfo->write_(ctx, ctx->err, o);
+    io_puts(ctx->err, "\n", 1);
 }
 
 #include "ctx.c"
@@ -435,6 +444,12 @@ static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
     }
 }
 
+int konoha_error (const char *msg)
+{
+  fprintf(stderr, "%s", msg);
+  exit(1);
+}
+
 static void asm_expr(Ctx *ctx, knh_Token_t *x)
 {
     enum token_code code = Token_CODE(x);
@@ -528,3 +543,4 @@ knh_Token_t *build_call_expr(knh_Token_t *func, Array(Token) *args)
     return t;
 }
 
+#include "stream.c"

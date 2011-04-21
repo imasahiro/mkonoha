@@ -65,6 +65,8 @@ enum object_type {
     TYPE_Method,
     TYPE_Array,
     TYPE_Tuple,
+    TYPE_OutputStream,
+    TYPE_InputStream,
     TYPE_MAX,
     TYPE_UNTYPED = -1,
     TYPE_void    = -2

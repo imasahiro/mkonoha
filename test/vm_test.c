@@ -1,13 +1,11 @@
 #include "../vm.c"
 #include "test.h"
 
-#define __(n) {(knh_int_t)n}
 static int test_iadd_nset(void)
 {
     knh_data_t ret;
     vm_t *vm = vm_new();
     vm_code_t *pc, code[] = {
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_nset),        __(3), __(9), __(0), __(0)},
         {__(op_nset),        __(2), __(8), __(0), __(0)},
         {__(op_iadd),        __(1), __(2), __(3), __(0)},
@@ -29,7 +27,6 @@ static int test_fadd_nset(void)
     v1.fval = 10.0;
     v2.fval = 20.0;
     vm_code_t *pc, code[] = {
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_nset),        __(3), __(v1.dval), __(0), __(0)},
         {__(op_nset),        __(2), __(v2.dval), __(0), __(0)},
         {__(op_fadd),        __(1), __(2), __(3), __(0)},
@@ -51,19 +48,17 @@ static int test_local_start(void)
     int  ret;
 #define __(n) {(knh_int_t)n}
     vm_code_t *pc, code1[] = {
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_local_start), __(9), __(0), __(0), __(0)},
         {__(op_exit),        __(0), __(0), __(0), __(0)},
     };
     vm_code_t code2[] = {
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_local_end),   __(9), __(0), __(0), __(0)},
         {__(op_exit),        __(0), __(0), __(0), __(0)},
     };
 #undef __
     pc = vm_code_init(vm, code1);
     vm_exec(vm, pc);
-    if (vm->sp != sp + 9) {
+    if (vm->sp != (void*)((intptr_t)sp + 9)) {
         return 0;
     }
     pc = vm_code_init(vm, code2);
@@ -82,14 +77,12 @@ static int test_icast_fcast(void)
     v1.fval = 15.0;
 #define __(n) {(knh_int_t)n}
     vm_code_t *pc, code1[] = {
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_nset),        __(3), __(v1.dval), __(0), __(0)},
         {__(op_icast),       __(2), __(3), __(0), __(0)},
         {__(op_ret),         __(2), __(0), __(0), __(0)},
         {__(op_exit),        __(0), __(0), __(0), __(0)},
     };
     vm_code_t code2[] = {
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_nset),        __(3), __(15), __(0), __(0)},
         {__(op_fcast),       __(2), __(3), __(0), __(0)},
         {__(op_ret),         __(2), __(0), __(0), __(0)},
@@ -116,7 +109,6 @@ static int test_int_op(void)
 #define __(n) {(knh_int_t)n}
 #define _code_(n, op, v1, v2, v3, v, rval) \
     vm_code_t code##n [] = {    \
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},  \
         {__(op_nset),        __(2), __(v1), __(0), __(0)}, \
         {__(op_nset),        __(3), __(v2), __(0), __(0)}, \
         {__(op_nset),        __(4), __(v3), __(0), __(0)}, \
@@ -147,7 +139,6 @@ static int test_float_op(void)
 #define __(n) {(knh_int_t)n}
 #define _code_(n, op, v1, v2, v3, v, rval) \
     vm_code_t code##n [] = {    \
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},  \
         {__(op_nset),        __(2), __(v1), __(0), __(0)}, \
         {__(op_nset),        __(3), __(v2), __(0), __(0)}, \
         {__(op_nset),        __(4), __(v3), __(0), __(0)}, \
@@ -181,7 +172,6 @@ static int test_fcall(void)
     vm_code_t *pc;
 #define __(n) {(knh_int_t)n}
     vm_code_t code [] = {
-        {__(op_thcode),      __(0), __(0), __(0), __(0)},
         {__(op_nset),        __(2), __(10), __(0), __(0)},
         {__(op_nset),        __(3), __(20), __(0), __(0)},
         {__(op_nset),        __(4), __(30), __(0), __(0)},
@@ -222,7 +212,6 @@ static int test_ncall(void)
 #define __(n) {(knh_int_t)n}
 #define _code_(n, op, f, v1, v2, v3, v, rval) \
     vm_code_t code##n [] = {\
-        {__(op_thcode),      __(0), __(0),  __(0), __(0)},\
         {__(op_nset),        __(RARG(0)), __(v1), __(0), __(0)},\
         {__(op_nset),        __(RARG(1)), __(v2), __(0), __(0)},\
         {__(op_nset),        __(RARG(2)), __(v3), __(0), __(0)},\

@@ -230,8 +230,4 @@ int konoha_wrap (void)
   return 1;
 }
 
-int konoha_error (const char *msg)
-{
-  fprintf(stderr, "%s", msg);
-  exit(1);
-}
+
