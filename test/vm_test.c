@@ -234,6 +234,115 @@ static int test_ncall(void)
     return 1;
 }
 
+typedef enum Reg_t {
+    Reg0,Reg1,Reg2,Reg3,Reg4,Reg5,Reg6,Reg7,
+    RegRet,
+    Arg0,Arg1, Arg2, Arg3, Arg4, Arg5, Arg6, Arg7, Arg8,
+    Arg9,Arg10,Arg11,
+} Reg_t;
+struct label {
+    int index;
+};
+typedef vm_code_t knh_code_t;
+DEF_ARRAY_S_T(code);
+DEF_ARRAY_S_STRUCT(code);
+DEF_ARRAY_S_OP_NOEQ(code);
+
+struct vmcode_builder {
+    vm_code_t *(*emit_code)(struct vmcode_builder *);
+    void (*nset_f)(struct vmcode_builder *, Reg_t, knh_float_t);
+    void (*nset_i)(struct vmcode_builder *, Reg_t, knh_data_t);
+    void (*nset)(struct vmcode_builder *, Reg_t, knh_value_t);
+    void (*iadd)(struct vmcode_builder *, Reg_t, Reg_t);
+    void (*jilt)(struct vmcode_builder *, struct label *, Reg_t, Reg_t);
+    void (*bind)(struct vmcode_builder *, struct label *);
+    void (*ret)(struct vmcode_builder *, Reg_t);
+};
+
+static vm_code_t *emit_code(struct vmcode_builder *cb)
+{
+    return NULL;
+}
+static void bind(struct vmcode_builder *cb, struct label * l)
+{
+}
+static void nset_f(struct vmcode_builder *cb, Reg_t r, knh_float_t f)
+{
+}
+static void nset_i(struct vmcode_builder *cb, Reg_t r, knh_data_t d)
+{
+}
+static void nset(struct vmcode_builder *cb, Reg_t r, knh_value_t v)
+{
+}
+static void iadd(struct vmcode_builder *cb, Reg_t r1, Reg_t r2)
+{
+}
+static void jilt(struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2)
+{
+}
+static void ret(struct vmcode_builder *cb, Reg_t r)
+{
+}
+
+#define SETf(cb, op) cb->op = op
+typedef struct vmcode_builder vmcode_builder;
+static vmcode_builder *new_vmcode_builder(void)
+{
+    vmcode_builder *cb = cast(vmcode_builder*,malloc_(sizeof(vmcode_builder)));
+    SETf(cb, emit_code);
+    SETf(cb, bind);
+    SETf(cb, nset_i);
+    SETf(cb, nset_f);
+    SETf(cb, nset);
+    SETf(cb, iadd);
+    SETf(cb, jilt);
+    SETf(cb, ret);
+    return cb;
+}
+
+static void vmcode_builder_delete(struct vmcode_builder *cb)
+{
+    free_(cb);
+}
+
+static int ___(void)
+{
+    knh_data_t ret;
+    vm_t *vm = vm_new();
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder();
+    vm_code_t *pc;
+    cb->nset_i(cb, Reg3, 9);
+    cb->nset_i(cb, Reg2, 8);
+    cb->iadd(cb, Reg2, Reg3);
+    cb->ret(cb,  Reg2);
+
+    pc = cb->emit_code(cb);
+    /*
+    if (i < 10) {
+        ret 20;
+    } else {
+        ret 30;
+    }
+    */
+    //struct label l1;
+    //cb->nset_i(cb, Reg3, 10);
+    //cb->jilt(cb, &l1, Arg0, Reg3);
+    //cb->nset_i(cb, Reg1, 20);
+    //cb->ret(cb,  Reg1);
+    //cb->bind(cb, &l1);
+    //cb->nset_i(cb, Reg1, 20);
+    //cb->ret(cb,  Reg1);
+    //pc = cb->emit_code(cb);
+
+    vm_exec(vm, pc);
+    ret = vm->r.ret.dval;
+    vmcode_builder_delete(cb);
+    vm_delete(vm);
+    return ret == (9+8);
+}
+
 static struct testcase __TESTCASE__[] = {
     TESTCASE(test_iadd_nset),
     TESTCASE(test_fadd_nset),
@@ -250,42 +359,8 @@ static struct testcase __TESTCASE__[] = {
 int main(int argc, char **argv)
 {
     __test__(__TESTCASE__, _ARRAY_SIZE(__TESTCASE__));
+    ___();
     return 0;
 }
 
-static int ___(void)
-{
-    knh_data_t ret;
-    vm_t *vm = vm_new();
-    struct vmcode_builder *cb;
-    cb = new_vmcode_builder();
-    vm_code_t *pc;
-    vm_code_t *label1;
-    cb->nset(cb, Reg3, 9);
-    cb->nset(cb, Reg2, 8);
-    cb->iadd(cb, Reg2, Reg3);
-    cb->ret(cb,  Reg2);
-
-    pc = cb->emit_code(cb);
-    /*
-    if (i < 10) {
-        ret 20;
-    } else {
-        ret 30;
-    }
-    */
-    struct label l1;
-    cb->nset(cb, Reg3, 10);
-    cb->jilt(cb, &l1, Arg0, Reg3);
-    cb->nset(cb, Reg1, 20);
-    cb->ret(cb,  Reg1);
-    cb->bind(cb, &l1);
-    cb->nset(cb, Reg1, 20);
-    cb->ret(cb,  Reg1);
-    pc = cb->emit_code(cb);
-
-    ret = vm->r.ret.dval;
-    vm_delete(vm);
-    return ret == (9+8);
-}
 

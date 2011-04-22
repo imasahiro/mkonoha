@@ -73,7 +73,7 @@ struct Array(T) {\
 }
 #define DEF_ARRAY_S_T(T) DEF_ARRAY_T(T)
 
-#define DEF_ARRAY_S_OP(T)\
+#define DEF_ARRAY_S_OP_NOEQ(T)\
 static inline Array(T) *Array_new_##T (void) {      \
     Array(T) *a = cast(Array(T) *, new_Array());    \
     return a;                                       \
@@ -91,6 +91,12 @@ static inline void Array_##T##_set(Array(T) *a, int idx, KNH_T(T) v){ \
     array_op(a, check_index, idx);                  \
     a->list[idx] = v;                               \
 }\
+static inline void Array_##T##_delete(Array(T) *a) {\
+    free(a);                                        \
+}\
+
+#define DEF_ARRAY_S_OP(T)\
+DEF_ARRAY_S_OP_NOEQ(T);\
 static inline int Array_##T##_eq(Array(T) *a1, Array(T) *a2){ \
     int i; KNH_T(T) x;                      \
     if (Array_size(a1) == Array_size(a2)) return 0;\
@@ -98,9 +104,6 @@ static inline int Array_##T##_eq(Array(T) *a1, Array(T) *a2){ \
         if (x != Array_n(a2, i)) return 0;  \
     }\
     return 1;\
-}\
-static inline void Array_##T##_delete(Array(T) *a) {\
-    free(a);                                        \
 }
 
 #define Array_get(T, a, idx)    Array_##T##_get(a, idx)
