@@ -46,8 +46,10 @@ static inline Array(T) *Array_new_##T (void) {             \
 }\
 static inline void Array_##T##_add(Array(T) *a, KNH_T(T) *v) {\
     array_op(a, check_type, O(v)->h.classinfo);     \
-    if (a->size + 1 >= a->capacity)                  \
-        a->list = (KNH_T(T)**)realloc(a->list, a->capacity * 2);\
+    if (a->size + 1 >= a->capacity) {\
+        a->list = (KNH_T(T)**)realloc(a->list, sizeof(KNH_T(T)*) * a->capacity * 2);\
+        a->capacity *= 2;\
+    }\
     a->list[a->size++] = v;                         \
 }\
 static inline KNH_T(T) *Array_##T##_get(Array(T) *a, int idx) {\
@@ -79,8 +81,10 @@ static inline Array(T) *Array_new_##T (void) {      \
     return a;                                       \
 }\
 static inline void Array_##T##_add(Array(T) *a, KNH_T(T) v) {\
-    if (a->size + 1 >= a->capacity)                  \
-        a->list = (KNH_T(T)*)realloc(a->list, a->capacity * 2);\
+    if (a->size + 1 >= a->capacity) {                \
+        a->capacity *= 2;\
+        a->list = (KNH_T(T)*)realloc(a->list, sizeof(KNH_T(T)) * a->capacity);\
+    }\
     a->list[a->size++] = v;                         \
 }\
 static inline KNH_T(T) Array_##T##_get(Array(T) *a, int idx) {\
