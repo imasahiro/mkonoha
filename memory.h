@@ -2,6 +2,7 @@
 #define MEMORY_H
 
 #define malloc_(len) (malloc(len))
+#define NEW(T) ((T*)malloc_(sizeof(T)))
 #define new_(T)      (knh_##T##_t *) __new(sizeof(knh_##T##_t), TYPE_##T)
 #define realloc_(ptr, len) (realloc(ptr, len))
 #define free_(ptr) { \

@@ -146,7 +146,6 @@ static void FILE_close_(struct io *io)
     if (c != NULL) {io->close_ = c;} else {}\
     if (s != NULL) {io->sync_  = s;} else {}\
 }
-#define NEW(T) ((T*)malloc_(sizeof(T)))
 static struct iobuf *new_iobuf(int bufsize)
 {
     struct iobuf *buf = NEW(struct iobuf);

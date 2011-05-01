@@ -64,6 +64,7 @@ enum opcode {
     op_Jfin,
     op_Jfnoin,
     op_call,
+    op_bcall,
     op_scall,
     op_fcall,
     op_ncall_v,
@@ -124,14 +125,14 @@ enum opcode {
 #define vmop_ile(i0, i1, i2)                 N (0) = N(1) <= N(2)
 #define vmop_iin(i0, i1, i2, i3)             N (0) = N(2) <= N(1) && N(1) <= N(3)
 #define vmop_inoin(i0, i1, i2, i3)           N (0) = N(1) <= N(2) && N(3) <= N(1)
-#define vmop_Jieq(i0, i1, i2)                if (N(1) == N(2)) jmp(P(0))
-#define vmop_Jine(i0, i1, i2)                if (N(1) != N(2)) jmp(P(0))
-#define vmop_Jigt(i0, i1, i2)                if (N(1) >  N(2)) jmp(P(0))
-#define vmop_Jilt(i0, i1, i2)                if (N(1) <  N(2)) jmp(P(0))
-#define vmop_Jige(i0, i1, i2)                if (N(1) >= N(2)) jmp(P(0))
-#define vmop_Jile(i0, i1, i2)                if (N(1) <= N(2)) jmp(P(0))
-#define vmop_Jiin(i0, i1, i2, i3)            if (N(2) <= N(1) && N(1) <= N(3)) jmp(P(0))
-#define vmop_Jinoin(i0, i1, i2, i3)          if (N(1) <= N(2) && N(3) <= N(1)) jmp(P(0))
+#define vmop_Jieq(i0, i1, i2)                if (N(1) == N(2)) __JMP__()
+#define vmop_Jine(i0, i1, i2)                if (N(1) != N(2)) __JMP__()
+#define vmop_Jigt(i0, i1, i2)                if (N(1) >  N(2)) __JMP__()
+#define vmop_Jilt(i0, i1, i2)                if (N(1) <  N(2)) __JMP__()
+#define vmop_Jige(i0, i1, i2)                if (N(1) >= N(2)) __JMP__()
+#define vmop_Jile(i0, i1, i2)                if (N(1) <= N(2)) __JMP__()
+#define vmop_Jiin(i0, i1, i2, i3)            if (N(2) <= N(1) && N(1) <= N(3)) __JMP__();
+#define vmop_Jinoin(i0, i1, i2, i3)          if (N(1) <= N(2) && N(3) <= N(1)) __JMP__();
 #define vmop_fadd(i0, i1, i2)                F (0) = F(1) + F(2)
 #define vmop_fsub(i0, i1, i2)                F (0) = F(1) - F(2)
 #define vmop_fmul(i0, i1, i2)                F (0) = F(1) * F(2)
@@ -146,29 +147,38 @@ enum opcode {
 #define vmop_fle(i0, i1, i2)                 F (0) = F(1) <= F(2)
 #define vmop_fin(i0, i1, i2, i3)             F (0) = F(2) <= F(1) && F(1) <= F(3)
 #define vmop_fnoin(i0, i1, i2, i3)           F (0) = F(1) <= F(2) && F(3) <= F(1)
-#define vmop_Jfeq(i0, i1, i2)                if (N(1) == N(2)) jmp(P(0))
-#define vmop_Jfne(i0, i1, i2)                if (N(1) != N(2)) jmp(P(0))
-#define vmop_Jfgt(i0, i1, i2)                if (N(1) >  N(2)) jmp(P(0))
-#define vmop_Jflt(i0, i1, i2)                if (N(1) <  N(2)) jmp(P(0))
-#define vmop_Jfge(i0, i1, i2)                if (N(1) >= N(2)) jmp(P(0))
-#define vmop_Jfle(i0, i1, i2)                if (N(1) <= N(2)) jmp(P(0))
-#define vmop_Jfin(i0, i1, i2, i3)            if (N(2) <= N(1) && N(1) <= N(3)) jmp(P(0))
-#define vmop_Jfnoin(i0, i1, i2, i3)          if (N(1) <= N(2) && N(3) <= N(1)) jmp(P(0))
+#define vmop_Jfeq(i0, i1, i2)                if (N(1) == N(2)) __JMP__();
+#define vmop_Jfne(i0, i1, i2)                if (N(1) != N(2)) __JMP__();
+#define vmop_Jfgt(i0, i1, i2)                if (N(1) >  N(2)) __JMP__();
+#define vmop_Jflt(i0, i1, i2)                if (N(1) <  N(2)) __JMP__();
+#define vmop_Jfge(i0, i1, i2)                if (N(1) >= N(2)) __JMP__();
+#define vmop_Jfle(i0, i1, i2)                if (N(1) <= N(2)) __JMP__();
+#define vmop_Jfin(i0, i1, i2, i3)            if (N(2) <= N(1) && N(1) <= N(3)) __JMP__();
+#define vmop_Jfnoin(i0, i1, i2, i3)          if (N(1) <= N(2) && N(3) <= N(1)) __JMP__();
 #define vmop_call(i0, i1, i2)                MTD(1)->call(vm, MTD(1)->pc);  P(0) = RET(vm)
+#define vmop_bcall(i0, i1, i2) {\
+    push_addr2(vm, (void**)pc, &&L_call_after);\
+    pc = (vm_code_t*)OC(2);     \
+    DISPATCH(pc);   \
+    L_call_after:;  \
+    pc = (vm_code_t*) pop_addr(vm);\
+    V(0) = RETv(vm);\
+    DISPATCH1(pc);\
+}
 #define vmop_scall(i0, i1, i2)               ((fvm2)P(2)) (vm, MTD(1)->pc); P(0) = RET(vm)
 #define vmop_fcall(i0, i1, i2)               ((fvm)OC(2)) (vm); P(0) = RET(vm)
 #define vmop_ncall_v(i0, i1, i2)             ((fa1_v)OC(2)) ()
 #define vmop_ncall_i(i0, i1, i2)             N(0) = ((fa1_i)OC(2)) (NARG(0))
 #define vmop_ncall_p(i0, i1, i2)             P(0) = ((fa1_p)OC(2)) (OARG(0))
 #define vmop_ncall_f(i0, i1, i2)             F(0) = ((fa1_f)OC(2)) (FARG(0))
-#define vmop_ret(i0)                         RETv(vm) = V(0)
-#define vmop_jmp(i0)                         jmp(P(0))
+#define vmop_ret(i0)                         RETv(vm) = V(0); jmp(pop_addr(vm))
+#define vmop_jmp(i0)                         jmp(OC(0))
 #define vmop_cast(i0, i1)                    O (0) = FCAST(0) (P(1), N(1))
 #define vmop_ngetidx(i0, i1, i2)             V (0) = Array_get(data,  NA(1), N(2))
 #define vmop_ogetidx(i0, i1, i2)             O (0) = Array_get(Object, OA(1), N(2))
 #define vmop_nsetidx(i0, i1, i2)             Array_set(data,  NA(1), N(2), V(0))
 #define vmop_osetidx(i0, i1, i2)             Array_set(Object, OA(1), N(2), O(0))
-#define vmop_thcode()                        __thcode_init(pc, THCODE); return
+#define vmop_thcode()                        __thcode_init(pc, THCODE); jmp(pop_addr(vm))
 #define vmop_unused0(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused1(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused2(i0)                     FUNC(0) (vm, pc)

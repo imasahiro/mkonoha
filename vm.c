@@ -42,7 +42,7 @@ struct vm {
             value_t arg[VM_MAX_REG_SIZE - 8 - 1];
         } r;
     };
-    void *sp;
+    void **sp;
 };
 
 typedef void (*fvm)(vm_t *);
@@ -73,6 +73,7 @@ static vm_t *vm_new(void)
         vm->regs_[i].o = NULL;
     }
     vm->r.ret.dval = 0;
+    vm->sp = malloc_(sizeof(void*) * 128);
     return vm;
 }
 
@@ -132,6 +133,24 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 #define NA(idx)    ((Array(data)*)  r[A(idx).ival].o)
 #define OA(idx)    ((Array(Object)*) r[A(idx).ival].o)
 #define jmp(add)   goto *(add)
+#define __JMP__()  {\
+    void *p = OC(0);\
+    ++pc;\
+    jmp(p);\
+}
+#define DISPATCH(pc)  goto *(THCODE[pc->c.code])
+#define DISPATCH1(pc) ++pc;goto *(pc->c.addr)
+//#define vm_local_new(vm, n)    vm->sp = (void*)((intptr_t)vm->sp + n);
+//#define vm_local_delete(vm, n) vm->sp = (void*)((intptr_t)vm->sp - n);
+
+static void vm_local_new(vm_t *vm, int n)
+{
+    vm->sp = (void*)((intptr_t)vm->sp + n*sizeof(void*));
+}
+static void vm_local_delete(vm_t *vm, int n)
+{
+    vm->sp = (void*)((intptr_t)vm->sp - n*sizeof(void*));
+}
 
 static knh_Object_t *new_Object_(knh_class_t cid)
 {
@@ -158,14 +177,52 @@ static bool vm_code_isInited(void)
 {
     return thcode_inited;
 }
+static inline bool hasJump(vm_code_t *pc)
+{
+    enum opcode op = pc->c.code;
+    return (
+            (op == op_Jieq) ||   
+            (op == op_Jine) ||   
+            (op == op_Jigt) ||   
+            (op == op_Jilt) ||   
+            (op == op_Jige) ||   
+            (op == op_Jile) ||   
+            (op == op_Jiin) ||   
+            (op == op_Jinoin) || 
+            (op == op_Jfeq) ||   
+            (op == op_Jfne) ||   
+            (op == op_Jfgt) ||   
+            (op == op_Jflt) ||   
+            (op == op_Jfge) ||   
+            (op == op_Jfle) ||   
+            (op == op_Jfin) ||   
+            (op == op_Jfnoin));
+}
 static void __thcode_init(vm_code_t *pc, void **thcode)
 {
+    vm_code_t *base = pc;
     if (!thcode_inited) {
         THCODE__ = thcode;
         thcode_inited = true;
         return;
     }
     while (pc->c.code != op_exit) {
+        if (hasJump(pc)) {
+            //asm volatile("int3");
+            //fprintf(stderr, "%p\n", pc->a0.ptr);
+            vm_code_t *tmp;
+            for (tmp = base; tmp->c.code != op_exit; tmp++) {
+                //fprintf(stderr, "%p %p %p\n", tmp, pc, pc->a0.ptr);
+                if (tmp == pc->a0.ptr) {
+                    vm_code_t *a_ = cast(vm_code_t*, pc->a0.ptr);
+                    if (a_->c.code > op_max) {
+                        pc->a0.ptr = a_->c.addr;
+                    } else {
+                        pc->a0.ptr = thcode[a_->c.code];
+                    }
+                }
+            }
+        }
         pc->c.addr = thcode[pc->c.code];
         pc++;
     }
@@ -186,12 +243,22 @@ static vm_code_t *vm_code_init(vm_t *vm, vm_code_t *code)
     code[0].c.code = opstart;
     return code;
 }
-
-#define DISPATCH(pc)  goto *(THCODE[pc->c.code])
-#define DISPATCH1(pc) ++pc;goto *(pc->c.addr)
-#define vm_local_new(vm, n)    vm->sp = (void*)((intptr_t)vm->sp + n);
-#define vm_local_delete(vm, n) vm->sp = (void*)((intptr_t)vm->sp - n);
-
+static inline void push_addr(vm_t *vm, void **l)
+{
+    vm->sp[0] = l;
+    vm->sp = vm->sp + 1;
+}
+static inline void push_addr2(vm_t *vm, void **l1, void **l2)
+{
+    vm->sp[0] = l1;
+    vm->sp[1] = l2;
+    vm->sp = vm->sp + 2;
+}
+static inline void **pop_addr(vm_t *vm)
+{
+    vm->sp = vm->sp - 1;
+    return vm->sp[0];
+}
 static void vm_exec(vm_t *vm, vm_code_t *pc)
 {
     register value_t *r =   vm->r.reg;
@@ -262,6 +329,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
         &&L_op_Jfin,
         &&L_op_Jfnoin,
         &&L_op_call,
+        &&L_op_bcall,
         &&L_op_scall,
         &&L_op_fcall,
         &&L_op_ncall_v,
@@ -285,6 +353,8 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
         &&L_op_unused6,
         &&L_op_unused7,
     };
+
+    push_addr(vm, &&L_return);
     DISPATCH(pc);
     L(halt        ) {_arg0(vmop_halt        );}
     L(exit        ) {_arg0(vmop_exit        );}
@@ -351,6 +421,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     L(Jfin        ) {_arg4(vmop_Jfin        );}
     L(Jfnoin      ) {_arg4(vmop_Jfnoin      );}
     L(call        ) {_arg3(vmop_call        );}
+    L(bcall       ) {_arg3(vmop_bcall       );}
     L(scall       ) {_arg3(vmop_scall       );}
     L(fcall       ) {_arg3(vmop_fcall       );}
     L(ncall_v     ) {_arg3(vmop_ncall_v     );}
@@ -373,4 +444,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     L(unused5     ) {_arg1(vmop_unused5     );}
     L(unused6     ) {_arg1(vmop_unused6     );}
     L(unused7     ) {_arg1(vmop_unused7     );}
+L_return:
+    return;
 }
+
