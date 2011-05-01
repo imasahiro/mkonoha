@@ -19,6 +19,9 @@ typedef struct knh_Object_t knh_Object_t;
 struct knh_Token_t;
 typedef struct knh_Token_t knh_Token_t;
 
+struct knh_Method_t;
+typedef struct knh_Method_t knh_Method_t;
+
 struct context;
 typedef struct context Ctx;
 typedef const Ctx *const CTX;

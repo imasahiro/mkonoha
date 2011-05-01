@@ -42,7 +42,7 @@ struct vm {
             value_t arg[VM_MAX_REG_SIZE - 8 - 1];
         } r;
     };
-    void **sp;
+    knh_value_t *sp;
 };
 
 typedef void (*fvm)(vm_t *);
@@ -117,6 +117,7 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 #define OARG(idx)    (arg[idx].o)
 #define RET(vm)    (vm->r.ret.o)
 #define RETv(vm)   (vm->r.ret.dval)
+#define LOCAL(idx)  ((vm->sp[A(idx).ival]).dval)
 #define V(idx)     ((r[A(idx).ival]).dval)
 #define N(idx)     ((r[A(idx).ival]).ival)
 #define O(idx)     ((r[A(idx).ival]).o)
@@ -245,19 +246,19 @@ static vm_code_t *vm_code_init(vm_t *vm, vm_code_t *code)
 }
 static inline void push_addr(vm_t *vm, void **l)
 {
-    vm->sp[0] = l;
+    vm->sp[0].ptr = l;
     vm->sp = vm->sp + 1;
 }
 static inline void push_addr2(vm_t *vm, void **l1, void **l2)
 {
-    vm->sp[0] = l1;
-    vm->sp[1] = l2;
+    vm->sp[0].ptr = l1;
+    vm->sp[1].ptr = l2;
     vm->sp = vm->sp + 2;
 }
 static inline void **pop_addr(vm_t *vm)
 {
     vm->sp = vm->sp - 1;
-    return vm->sp[0];
+    return vm->sp[0].ptr;
 }
 static void vm_exec(vm_t *vm, vm_code_t *pc)
 {
@@ -268,6 +269,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
         &&L_op_exit,
         &&L_op_local_start,
         &&L_op_local_end,
+        &&L_op_movl,
         &&L_op_nmov,
         &&L_op_nmovx,
         &&L_op_xnmov,
@@ -360,6 +362,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     L(exit        ) {_arg0(vmop_exit        );}
     L(local_start ) {_arg1(vmop_local_start );}
     L(local_end   ) {_arg1(vmop_local_end   );}
+    L(movl        ) {_arg2(vmop_movl        );}
     L(nmov        ) {_arg2(vmop_nmov        );}
     L(nmovx       ) {_arg2(vmop_nmovx       );}
     L(xnmov       ) {_arg2(vmop_xnmov       );}

@@ -3,6 +3,7 @@ enum opcode {
     op_exit,
     op_local_start,
     op_local_end,
+    op_movl,
     op_nmov,
     op_nmovx,
     op_xnmov,
@@ -95,6 +96,7 @@ enum opcode {
 #define vmop_exit()                          return
 #define vmop_local_start(i0)                 vm_local_new(vm, NC(0))
 #define vmop_local_end(i0)                   vm_local_delete(vm, NC(0))
+#define vmop_movl(i0, i1)                    N (0) = LOCAL (1)
 #define vmop_nmov(i0, i1)                    N (0) = N (1)
 #define vmop_nmovx(i0, i1)                   N (0) = NX(1)
 #define vmop_xnmov(i0, i1)                   NX(0) = N (1)
