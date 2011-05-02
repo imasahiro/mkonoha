@@ -253,10 +253,13 @@ DEF_ARRAY_S_OP(code);
 struct vmcode_builder {
     vm_t *vm;
     Array(code) *codebuf;
+    int codesize;
     vm_code_t *(*emit_code)(struct vmcode_builder *);
+    void (*optimize_code)(struct vmcode_builder *, struct knh_Method_t *mtd);
     void (*local_start)(struct vmcode_builder *, int idx);
     void (*local_end)(struct vmcode_builder *, int idx);
-    void (*movl)(struct vmcode_builder *, int idx, Reg_t);
+    void (*movlr)(struct vmcode_builder *, int idx, Reg_t);
+    void (*movrl)(struct vmcode_builder *, Reg_t, int idx);
     void (*nset_f)(struct vmcode_builder *, Reg_t, knh_float_t);
     void (*nset_i)(struct vmcode_builder *, Reg_t, knh_data_t);
     void (*nset)(struct vmcode_builder *, Reg_t, knh_value_t);
@@ -304,15 +307,32 @@ static vm_code_t *emit_code(struct vmcode_builder *cb)
         delete_(x);
     }
 
+    cb->codesize = size;
     delete_(cb->codebuf);
     code = vm_code_init(cb->vm, code);
     return code;
 }
+static inline void SetOpBCall(vm_code_t *pc);
+static inline bool isOpCall(vm_code_t *pc);
+static void optimize_code(struct vmcode_builder *cb, struct knh_Method_t *mtd)
+{
+    int i, size = cb->codesize;
+    knh_code_t x;
+    for (i = 0; i < size; i++) {
+        x = mtd->pc + i;
+        if (isOpCall(x) && x->a1.mtd == mtd) {
+            SetOpBCall(x);
+            x->a2.ptr = mtd->pc;
+        }
+    }
+}
+
 #define NEW_OP(op) (new_op(op_##op))
 static inline vm_code_t *new_op(enum opcode op)
 {
     vm_code_t *code = NEW(vm_code_t);
     code->c.code = op;
+    code->a0.ival = code->a1.ival = code->a2.ival = 0;
     return code;
 }
 
@@ -349,14 +369,21 @@ static void local_end(struct vmcode_builder *cb, int idx)
     code->a0.ival = idx;
     Array_add(code, cb->codebuf, code);
 }
-static void movl(struct vmcode_builder *cb, int idx, Reg_t r1)
+static void movlr(struct vmcode_builder *cb, int idx, Reg_t r1)
 {
-    knh_code_t code = NEW_OP(movl);
+    knh_code_t code = NEW_OP(movlr);
     code->a0.ival = idx;
     code->a1.ival = r1;
     Array_add(code, cb->codebuf, code);
 }
+static void movrl(struct vmcode_builder *cb, Reg_t r1, int idx)
+{
+    knh_code_t code = NEW_OP(movrl);
+    code->a0.ival = r1;
+    code->a1.ival = idx;
+    Array_add(code, cb->codebuf, code);
 
+}
 static void isub(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3)
 {
     knh_code_t code = NEW_OP(isub);
@@ -440,9 +467,11 @@ static vmcode_builder *new_vmcode_builder(vm_t *vm)
     vmcode_builder *cb = cast(vmcode_builder*,malloc_(sizeof(vmcode_builder)));
     cb->vm = vm;
     SETf(cb, emit_code);
+    SETf(cb, optimize_code);
     SETf(cb, local_start);
     SETf(cb, local_end);
-    SETf(cb, movl);
+    SETf(cb, movlr);
+    SETf(cb, movrl);
     SETf(cb, nset_i);
     SETf(cb, nset_f);
     SETf(cb, nset);
@@ -511,8 +540,14 @@ static int test_vm_cond(void)
     vm_exec(vm, pc);
     ret = vm->r.ret.dval;
     vmcode_builder_delete(cb);
+    if (ret != 20) {
+        return 0;
+    }
+    vm->r.arg[0].ival = 100;
+    vm_exec(vm, pc);
+    ret = vm->r.ret.dval;
     vm_delete(vm);
-    return ret == 20;
+    return ret == 30;
 }
 
 static int test_vm_bcall(void)
@@ -546,39 +581,62 @@ static struct knh_Method_t *new_Method(fvm2 func, vm_code_t *pc)
     mtd->pc   = pc;
     return mtd;
 }
+static int fibo(int n)
+{
+    if (n < 3) {
+        return 1;
+    }
+    return fibo(n-1) + fibo(n-2);
+}
+
 static int test_vm_fibo(void)
 {
     knh_data_t ret;
     vm_t *vm = vm_new();
     struct vmcode_builder *cb;
     cb = new_vmcode_builder(vm);
-    vm_code_t *pc;
+    vm_code_t *pc = NULL;
 
     struct knh_Method_t *mtd = new_Method(NULL, NULL);
     struct label l1;
+#define __N__ 3
     cb->nset_i(cb, Reg3, 3);
     cb->jilt(cb, &l1, Arg0, Reg3);
     cb->nset_i(cb, Reg1, 1);
     cb->ret(cb,  Reg1);
     l1.replaceLabelWith(&l1, cb);
-    cb->local_start(cb, 1);
+#define LOCALSIZE 2
+    cb->local_start(cb, LOCALSIZE);
+    /* n - 1 */
     cb->nset_i(cb, Reg1, 1);
     cb->isub(cb, Reg2, Arg0, Reg1);
-    cb->movl(cb, 0, Reg2);
+    cb->movlr(cb, 0, Reg2);
+    /* n - 2 */
     cb->nset_i(cb, Reg1, 2);
     cb->isub(cb, Arg0, Arg0, Reg1);
-
+    /* b = fibo(n-2) */
     cb->call(cb, Reg4, mtd, pc);
-    cb->call(cb, Reg4, mtd, pc);
-    cb->local_end(cb, 1);
-    cb->ret(cb,  Reg4);
+    cb->movlr(cb, 1, Reg4);
+    /* a = fibo(n-1) */
+    cb->movrl(cb, Arg0, 0);
+    cb->call(cb, Reg5, mtd, pc);
+    /* c = a + b */
+    cb->movrl(cb, Reg4, 1);
+    cb->iadd(cb, Reg2, Reg4, Reg5);
+    cb->local_end(cb, LOCALSIZE);
+    /* return c */
+    cb->ret(cb,  Reg2);
     pc = cb->emit_code(cb);
-    vm->r.arg[0].ival = 9;
+    mtd->pc = pc;
+    cb->optimize_code(cb, mtd);
+    vm->r.arg[0].ival = __N__;
+    asm volatile("int3");
     vm_exec(vm, pc);
     ret = vm->r.ret.dval;
+    fprintf(stderr, "ret=%d\n", ret);
     vmcode_builder_delete(cb);
     vm_delete(vm);
-    return ret == 20;
+    return ret == fibo(__N__);
 }
 
 static struct testcase __TESTCASE__[] = {
@@ -593,6 +651,7 @@ static struct testcase __TESTCASE__[] = {
     TESTCASE(test_vm_builder),
     TESTCASE(test_vm_cond),
     TESTCASE(test_vm_bcall),
+    TESTCASE(test_vm_fibo),
 };
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))

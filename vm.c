@@ -85,8 +85,8 @@ static void vm_delete(vm_t *vm)
 
 static void VM_DBG_P(const char *f, vm_code_t *pc)
 {
-#if 0
-    fprintf(stderr, "%s p pc=%p\n", f, pc);
+#if 1
+    fprintf(stderr, "%18s p pc=%p %8d %8d %8d\n", f, pc, pc->a0, pc->a1, pc->a2);
 #endif
 }
 static void VM_DBG_N(const char *f, vm_code_t *pc)
@@ -135,9 +135,9 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 #define OA(idx)    ((Array(Object)*) r[A(idx).ival].o)
 #define jmp(add)   goto *(add)
 #define __JMP__()  {\
-    void *p = OC(0);\
-    ++pc;\
-    jmp(p);\
+    vm_code_t *p = (vm_code_t *) OC(0);\
+    pc = p;\
+    jmp(p->c.addr);\
 }
 #define DISPATCH(pc)  goto *(THCODE[pc->c.code])
 #define DISPATCH1(pc) ++pc;goto *(pc->c.addr)
@@ -178,6 +178,19 @@ static bool vm_code_isInited(void)
 {
     return thcode_inited;
 }
+static inline bool isOpCall(vm_code_t *pc)
+{
+    if (THCODE__) {
+        return THCODE__[op_call] == pc->c.addr;
+    }
+    return false;
+}
+static inline void SetOpBCall(vm_code_t *pc)
+{
+    if (THCODE__) {
+        pc->c.addr = THCODE__[op_bcall];
+    }
+}
 static inline bool hasJump(vm_code_t *pc)
 {
     enum opcode op = pc->c.code;
@@ -216,11 +229,7 @@ static void __thcode_init(vm_code_t *pc, void **thcode)
                 //fprintf(stderr, "%p %p %p\n", tmp, pc, pc->a0.ptr);
                 if (tmp == pc->a0.ptr) {
                     vm_code_t *a_ = cast(vm_code_t*, pc->a0.ptr);
-                    if (a_->c.code > op_max) {
-                        pc->a0.ptr = a_->c.addr;
-                    } else {
-                        pc->a0.ptr = thcode[a_->c.code];
-                    }
+                    pc->a0.ptr = a_;
                 }
             }
         }
@@ -231,7 +240,6 @@ static void __thcode_init(vm_code_t *pc, void **thcode)
 }
 static vm_code_t *vm_code_init(vm_t *vm, vm_code_t *code)
 {
-
     if (!vm_code_isInited()) {
         vm_code_t __code = {__(op_thcode),      __(0), __(0), __(0), __(0)};
         vm_exec(vm, &__code);
@@ -269,7 +277,8 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
         &&L_op_exit,
         &&L_op_local_start,
         &&L_op_local_end,
-        &&L_op_movl,
+        &&L_op_movlr,
+        &&L_op_movrl,
         &&L_op_nmov,
         &&L_op_nmovx,
         &&L_op_xnmov,
@@ -362,7 +371,8 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     L(exit        ) {_arg0(vmop_exit        );}
     L(local_start ) {_arg1(vmop_local_start );}
     L(local_end   ) {_arg1(vmop_local_end   );}
-    L(movl        ) {_arg2(vmop_movl        );}
+    L(movlr       ) {_arg2(vmop_movlr       );}
+    L(movrl       ) {_arg2(vmop_movrl       );}
     L(nmov        ) {_arg2(vmop_nmov        );}
     L(nmovx       ) {_arg2(vmop_nmovx       );}
     L(xnmov       ) {_arg2(vmop_xnmov       );}
