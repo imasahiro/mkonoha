@@ -428,6 +428,12 @@ knh_Token_t *build_foreach(knh_Token_t *type, knh_Token_t *var, knh_Token_t *itr
     return NULL;
 }
 
+int konoha_error (const char *msg)
+{
+  fprintf(stderr, "%s", msg);
+  exit(1);
+}
+
 #define T_DUMP(t) \
     fprintf(stderr, "%s:%d:", __FILE__, __LINE__);\
     type_is(O(t), TYPE_Token);\
@@ -467,7 +473,18 @@ static Array(Tuple) *get_current_level(int level)
     }
     return a;
 }
-static void asm_variable_name(Ctx *ctx, Reg_t r, knh_string_t *name)
+
+struct asmdata;
+typedef void (*fasm_p)(Ctx *, struct asmdata *, knh_Token_t *);
+struct asmdata {
+    union {
+        Reg_t r;
+        knh_value_t v;
+    } v1, v2;
+    fasm_p asm_p;
+};
+
+static void asm_variable_name(Ctx *ctx, Reg_t r, knh_string_t *name, struct asmdata *dat)
 {
     Array(Tuple) *a = get_current_level(ctx->blklevel);
     knh_Tuple_t *x;
@@ -476,6 +493,7 @@ static void asm_variable_name(Ctx *ctx, Reg_t r, knh_string_t *name)
     FOR_EACH_ARRAY(a, x, i) {
         tpl = cast(Tuple(Token, Token)*, x);
         if (string_cmp(tpl->o1->data.str, name) == 0) {
+            dat->asm_p(ctx, dat, tpl->o1);
             if (tpl->o1->type == TYPE_String) {
                 CB->oset(CB, r, tpl->o2->data.o);
             } else if (tpl->o1->type == TYPE_Integer) {
@@ -490,22 +508,34 @@ static void asm_variable_name(Ctx *ctx, Reg_t r, knh_string_t *name)
 }
 
 static knh_string_t __equal = {1, "="};
-struct asmdata {
-    union {
-        Reg_t r;
-        knh_value_t v;
-    } v1, v2;
-};
-static void asm_call_print(Ctx *ctx, knh_string_t *name, knh_class_t cid)
+static knh_string_t __camma = {2, ", "};
+static void asm_print_var_before(Ctx *ctx, struct asmdata *dat, knh_Token_t *x)
 {
-    CB->oset(CB, Arg0, O(ctx->out));
-    CB->nset_i(CB, Arg1, TYPE_String);
-    CB->oset(CB, Arg2, O(String_concat1(name, &__equal)));
-    CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
-    CB->oset(CB, Arg0, O(ctx->out));
-    CB->nset_i(CB, Arg1, TYPE_Integer);
-    asm_variable_name(ctx, Arg2, name);
-    CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+    CB->nset_i(CB, dat->v1.r, (x->type!=TYPE_UNTYPED)?x->type:TYPE_Integer);
+}
+static void asm_call_print(Ctx *ctx, Array(Token) *a)
+{
+    int i;
+    knh_Token_t *x;
+    FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
+        CB->oset(CB, Arg0, O(ctx->out));
+        if (i != 1) {
+            CB->nset_i(CB, Arg1, TYPE_String);
+            CB->oset(CB, Arg2, O(&__camma));
+            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+        }
+        if (Token_CODE(x) == IDENTIFIER_NODE) {
+            struct asmdata dat = {};
+            knh_string_t *name = x->data.str;
+            CB->nset_i(CB, Arg1, TYPE_String);
+            CB->oset(CB, Arg2, O(String_concat1(name, &__equal)));
+            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            dat.v1.r = Arg1;
+            dat.asm_p = asm_print_var_before;
+            asm_variable_name(ctx, Arg2, name, &dat);
+            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+        }
+    }
 }
 
 static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
@@ -515,28 +545,23 @@ static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
     knh_Token_t *x, *func;
     T_DUMP(stmt);
     func = Array_n(a, 0);
-    FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
-        if (Token_CODE(x) == IDENTIFIER_NODE) {
-            knh_string_t *name = x->data.str;
-            if (string_cmp_char(name, "print", 5)) {
-                asm_call_print(ctx, x->data.str, x->type);
+    if (string_cmp_char(func->data.str, "print", 5) == 0) {
+        asm_call_print(ctx, a);
+    } else {
+        FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
+            if (Token_CODE(x) == IDENTIFIER_NODE) {
+                knh_string_t *name = x->data.str;
+                //asm volatile("int3");
+            } else if (Token_isConst(x)) {
+                asm volatile("int3");
             }
-            //asm volatile("int3");
-        } else if (Token_isConst(x)) {
-            asm volatile("int3");
         }
     }
-    //t->code   = CALL_EXPR;
-    //t->type   = TYPE_UNTYPED;
-    //t->data.o = O(a);
- 
 }
 
-static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
+static void asm_op2(Ctx *ctx, knh_Token_t *x);
+static void asm_decl_tpl(Ctx *ctx, Tuple(Token, Token) *tpl)
 {
-    Tuple(Token, Token) *tpl;
-    T_DUMP(stmt);
-    tpl = cast(Tuple(Token, Token)*, stmt->data.o);
     if (Token_isConst(tpl->o2)) {
         knh_value_t v;
         if (IS_ConstInt(tpl->o2)) {
@@ -550,15 +575,57 @@ static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
         }
         tpl->o1->type = tpl->o2->type;
     } else {
-        TODO();
+        knh_Token_t *x0 = tpl->o1;
+        knh_Token_t *x1 = tpl->o2;
+        enum operator_code code = Token_CODE(x1);
+        if (OpUndef < code && code < OPERATOR_CODE_MAX) {
+            asm_op2(ctx, x1);
+        } else {
+            TODO();
+        }
+        fprintf(stderr, "%p %p\n", x0, x1);
     }
     append_to_current_decls_tpl(tpl, ctx->blklevel);
 }
 
-int konoha_error (const char *msg)
+static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
 {
-  fprintf(stderr, "%s", msg);
-  exit(1);
+    Tuple(Token, Token) *tpl;
+    T_DUMP(stmt);
+    tpl = cast(Tuple(Token, Token)*, stmt->data.o);
+    asm_decl_tpl(ctx, tpl);
+}
+static Reg_t asm_0(Ctx *ctx, knh_Token_t *tk)
+{
+    return Reg0;
+}
+static void asm_op2(Ctx *ctx, knh_Token_t *x)
+{
+    Array(Token) *tk = cast(Array(Token)*, x->data.o);
+    Tuple(Token, Token) *tpl;
+    knh_Token_t *x0, *x1;
+    x0 = Array_n(tk, 0);
+    x1 = Array_n(tk, 1);
+#define OPCASE(op) case Op##op:
+    switch (Token_CODE(x)) {
+        OPCASE(EQLET) {
+            tpl = Tuple_new_init(Token, Token, x0, x1);
+            asm_decl_tpl(ctx, tpl);
+            break;
+        }
+        OPCASE(Plus) {
+            Reg_t r0 = asm_0(ctx, x0);
+            Reg_t r1 = asm_0(ctx, x1);
+            if (x0->type == TYPE_Integer && x1->type == TYPE_Integer) {
+                Reg_t rtmp = Reg4;
+                CB->iadd(CB, rtmp, r0, r1);
+            }
+            break;
+        }
+        default:
+            asm volatile("int3");
+            break;
+    }
 }
 
 static void asm_expr(Ctx *ctx, knh_Token_t *x)
@@ -575,6 +642,10 @@ static void asm_expr(Ctx *ctx, knh_Token_t *x)
             asm_decl(ctx, x);
             break;
         default:
+            if (OpUndef < code && code < OPERATOR_CODE_MAX) {
+                asm_op2(ctx, x);
+                break;
+            }
             asm volatile("int3");
             konoha_error("???");
     }
@@ -582,13 +653,14 @@ static void asm_expr(Ctx *ctx, knh_Token_t *x)
 
 void write_global_script(knh_Token_t *stmt)
 {
-    int i;
+    int i = 0;
     knh_Token_t *x;
     Ctx *ctx = g_ctx;
     struct vmcode_builder *cb = new_vmcode_builder(ctx->vm);
     ctx->cb = cb;
     token_check(stmt, code_is, STMT_LIST);
     FOR_EACH_TOKEN(stmt, x, i) {
+        fprintf(stderr, "i=%d x=%p\n", i, x);
         asm_expr(ctx, x);
     }
 }

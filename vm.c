@@ -78,12 +78,12 @@ static void dump(knh_value_t *sp)
 }
 static void VM_DBG_P(const char *f, vm_code_t *pc, vm_t *vm, value_t *sp)
 {
-#if 0
+#if 1
     fprintf(stderr, "%18s p pc=%p %8d %8d %8d\n", f, pc, pc->a0, pc->a1, pc->a2);
-    fprintf(stderr, "lsp::(%p)", sp);
-    dump(sp);
-    fprintf(stderr, "vsp::(%p)", vm->sp);
-    dump(vm->sp);
+    //fprintf(stderr, "lsp::(%p)", sp);
+    //dump(sp);
+    //fprintf(stderr, "vsp::(%p)", vm->sp);
+    //dump(vm->sp);
 #endif
 }
 static void VM_DBG_N(const char *f, vm_code_t *pc)
