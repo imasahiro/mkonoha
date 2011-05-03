@@ -73,7 +73,7 @@ static vm_t *vm_new(void)
         vm->regs_[i].o = NULL;
     }
     vm->r.ret.dval = 0;
-    vm->sp = malloc_(sizeof(void*) * 128);
+    vm->sp = malloc_(sizeof(void*) * 512);
     return vm;
 }
 
@@ -82,11 +82,22 @@ static void vm_delete(vm_t *vm)
     free_(vm);
 }
 
-
-static void VM_DBG_P(const char *f, vm_code_t *pc)
+static void dump(knh_value_t *sp)
 {
-#if 1
+    int i;
+    for (i = 0; i < 5; i++) {
+        fprintf(stderr, "sp%d=%d,", i, sp[i].ival);
+    }
+    fprintf(stderr, "\n");
+}
+static void VM_DBG_P(const char *f, vm_code_t *pc, vm_t *vm, value_t *sp)
+{
+#if 0
     fprintf(stderr, "%18s p pc=%p %8d %8d %8d\n", f, pc, pc->a0, pc->a1, pc->a2);
+    fprintf(stderr, "lsp::(%p)", sp);
+    dump(sp);
+    fprintf(stderr, "vsp::(%p)", vm->sp);
+    dump(vm->sp);
 #endif
 }
 static void VM_DBG_N(const char *f, vm_code_t *pc)
@@ -104,11 +115,11 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 #define __a2(f) f(pc->a0, pc->a1)
 #define __a3(f) f(pc->a0, pc->a1, pc->a2)
 #define __a4(f) f(pc->a0, pc->a1, pc->a2, pc->a3)
-#define _arg0(f) VM_DBG_P(#f, pc);__a0(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
-#define _arg1(f) VM_DBG_P(#f, pc);__a1(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
-#define _arg2(f) VM_DBG_P(#f, pc);__a2(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
-#define _arg3(f) VM_DBG_P(#f, pc);__a3(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
-#define _arg4(f) VM_DBG_P(#f, pc);__a4(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
+#define _arg0(f) VM_DBG_P(#f, pc, vm, sp);__a0(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
+#define _arg1(f) VM_DBG_P(#f, pc, vm, sp);__a1(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
+#define _arg2(f) VM_DBG_P(#f, pc, vm, sp);__a2(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
+#define _arg3(f) VM_DBG_P(#f, pc, vm, sp);__a3(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
+#define _arg4(f) VM_DBG_P(#f, pc, vm, sp);__a4(f); VM_DBG_N(#f, pc); DISPATCH1(pc)
 
 #undef O
 #define A(i)         (pc->a ## i)
@@ -117,7 +128,7 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 #define OARG(idx)    (arg[idx].o)
 #define RET(vm)    (vm->r.ret.o)
 #define RETv(vm)   (vm->r.ret.dval)
-#define LOCAL(idx)  ((vm->sp[A(idx).ival]).dval)
+#define LOCAL(idx)  ((sp[A(idx).ival]).dval)
 #define V(idx)     ((r[A(idx).ival]).dval)
 #define N(idx)     ((r[A(idx).ival]).ival)
 #define O(idx)     ((r[A(idx).ival]).o)
@@ -144,13 +155,17 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 //#define vm_local_new(vm, n)    vm->sp = (void*)((intptr_t)vm->sp + n);
 //#define vm_local_delete(vm, n) vm->sp = (void*)((intptr_t)vm->sp - n);
 
-static void vm_local_new(vm_t *vm, int n)
+static value_t *vm_local_new(vm_t *vm, int n)
 {
+    value_t *sp = vm->sp;
     vm->sp = (void*)((intptr_t)vm->sp + n*sizeof(void*));
+    return sp;
 }
-static void vm_local_delete(vm_t *vm, int n)
+static value_t *vm_local_delete(vm_t *vm, int n)
 {
+    value_t *sp = vm->sp;
     vm->sp = (void*)((intptr_t)vm->sp - n*sizeof(void*));
+    return sp;
 }
 
 static knh_Object_t *new_Object_(knh_class_t cid)
@@ -168,7 +183,7 @@ static knh_int_t new_unbox(knh_class_t cid, knh_Object_t *o)
 
 static void _halt(void)
 {
-    fprintf(stderr, "halt!!\n");
+    //fprintf(stderr, "halt!!\n");
     exit(EXIT_FAILURE);
 }
 
@@ -263,6 +278,13 @@ static inline void push_addr2(vm_t *vm, void **l1, void **l2)
     vm->sp[1].ptr = l2;
     vm->sp = vm->sp + 2;
 }
+static inline void push_addr3(vm_t *vm,void **l1, void **l2, void **l3)
+{
+    vm->sp[0].ptr = l1;
+    vm->sp[1].ptr = l2;
+    vm->sp[2].ptr = l3;
+    vm->sp = vm->sp + 3;
+}
 static inline void **pop_addr(vm_t *vm)
 {
     vm->sp = vm->sp - 1;
@@ -272,6 +294,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
 {
     register value_t *r =   vm->r.reg;
     register value_t *arg = vm->r.arg;
+    register value_t *sp;
     static void* THCODE[] = {
         &&L_op_halt,
         &&L_op_exit,
@@ -366,6 +389,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc)
     };
 
     push_addr(vm, &&L_return);
+    sp = vm->sp;
     DISPATCH(pc);
     L(halt        ) {_arg0(vmop_halt        );}
     L(exit        ) {_arg0(vmop_exit        );}
@@ -461,3 +485,4 @@ L_return:
     return;
 }
 
+#include "./vmbuilder.c"

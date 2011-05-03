@@ -203,6 +203,7 @@ static Ctx *new_context(void)
     stream_init();
     context_init_stream(ctx);
     ctx->vm = vm_new();
+    ctx->cb = NULL;
     return ctx;
 }
 

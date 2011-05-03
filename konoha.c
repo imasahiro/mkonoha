@@ -49,6 +49,7 @@ struct context {
     struct io *out;
     struct io *err;
     struct io *in;
+    struct vmcode_builder *cb;
 };
 
 struct alias_info {
@@ -436,13 +437,25 @@ static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
 
 static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
 {
+    struct vmcode_builder *cb = ctx->cb;
     knh_Token_t *tmp;
     Tuple(Token, Token) *tpl;
     T_DUMP(stmt);
     tpl = cast(Tuple(Token, Token)*, stmt->data.o);
     if (!Token_isConst(tpl->o2)) {
+        /* TODO */
+        //tmp = asm_expr(tpl->o2);
     } else {
-        tmp = tpl->o2;
+#define IS_ConstInt(o) (Token_CODE(o) == INTEGER_CONST)
+#define IS_ConstFloat(o) (Token_CODE(o) == FLOAT_CONST)
+        knh_value_t v;
+        if (IS_ConstInt(tpl->o2)) {
+            v.ival = tpl->o2->data.ival;
+            cb->nset_i(cb, Reg1, v.dval);
+        } else if (IS_ConstFloat(tpl->o2)) {
+            v.fval = tpl->o2->data.fval;
+            cb->nset_f(cb, Reg1, v.fval);
+        }
     }
 }
 
@@ -476,6 +489,8 @@ void write_global_script(knh_Token_t *stmt)
     int i;
     knh_Token_t *x;
     Ctx *ctx = g_ctx;
+    struct vmcode_builder *cb = new_vmcode_builder(ctx->vm);
+    ctx->cb = cb;
     token_check(stmt, code_is, STMT_LIST);
     FOR_EACH_TOKEN(stmt, x, i) {
         asm_expr(ctx, x);

@@ -65,7 +65,7 @@ static int FILE_read_ (struct io *io, struct iobuf *buf)
     }
 
     {
-        int n = 0, segments = size / FILE_BUF_SIZE;
+        int n = 0, segments = size / FILE_BUF_SIZE, readed;
         struct fileblock *fblk = (struct fileblock*) buf->buf;
         while (segments > 0) {
             struct fileblock *base;
@@ -78,7 +78,7 @@ static int FILE_read_ (struct io *io, struct iobuf *buf)
             n = fread(base, len, 1, fp);
             size += n;
         }
-        fread(iobuf->buf, FILE_BUF_SIZE, 1, fp);
+        readed = fread(iobuf->buf, FILE_BUF_SIZE, 1, fp);
         memcpy(fblk, iobuf->buf, size % FILE_BUF_SIZE);
         iobuf->pos = size % FILE_BUF_SIZE;
         iobuf->size = FILE_BUF_SIZE;

@@ -1,6 +1,6 @@
 GPATH
 GRTAGS
 GTAGS
-build/*
+build/*.o
 txt/
 a.out*

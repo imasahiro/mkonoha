@@ -224,7 +224,7 @@ static int test_ncall(void)
     vm_exec(vm, pc);\
     if (vm->r.ret.rval != v) return 0;
     knh_value_t v1, v2, v3;
-    v1.fval = 10.0;v1.fval = 20.0;v1.fval = 30.0;
+    v1.fval = 10.0;v2.fval = 20.0;v3.fval = 30.0;
     _code_(0, v, ncall_test_v, 0, 0, 0, 0, dval);
     _code_(1, i, ncall_test_i, 10, 20, 30, 10, ival);
     _code_(2, f, ncall_test_f, v1.dval, v2.dval, v3.dval, v1.fval, fval);
@@ -232,269 +232,6 @@ static int test_ncall(void)
 #undef _code_
     vm_delete(vm);
     return 1;
-}
-
-typedef enum Reg_t {
-    Reg0,Reg1,Reg2,Reg3,Reg4,Reg5,Reg6,Reg7,
-    RegRet,
-    Arg0,Arg1, Arg2, Arg3, Arg4, Arg5, Arg6, Arg7, Arg8,
-    Arg9,Arg10,Arg11,
-} Reg_t;
-struct vmcode_builder;
-struct label {
-    int index;
-    void (*replaceLabelWith)(struct label*, struct vmcode_builder*);
-};
-typedef vm_code_t *knh_code_t;
-DEF_ARRAY_S_T(code);
-DEF_ARRAY_S_STRUCT(code);
-DEF_ARRAY_S_OP(code);
-
-struct vmcode_builder {
-    vm_t *vm;
-    Array(code) *codebuf;
-    int codesize;
-    vm_code_t *(*emit_code)(struct vmcode_builder *);
-    void (*optimize_code)(struct vmcode_builder *, struct knh_Method_t *mtd);
-    void (*local_start)(struct vmcode_builder *, int idx);
-    void (*local_end)(struct vmcode_builder *, int idx);
-    void (*movlr)(struct vmcode_builder *, int idx, Reg_t);
-    void (*movrl)(struct vmcode_builder *, Reg_t, int idx);
-    void (*nset_f)(struct vmcode_builder *, Reg_t, knh_float_t);
-    void (*nset_i)(struct vmcode_builder *, Reg_t, knh_data_t);
-    void (*nset)(struct vmcode_builder *, Reg_t, knh_value_t);
-    void (*iadd)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
-    void (*isub)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
-    void (*imul)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
-    void (*idiv)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
-    void (*jilt)(struct vmcode_builder *, struct label *, Reg_t, Reg_t);
-    void (*ret)(struct vmcode_builder *, Reg_t);
-    void (*bcall)(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr);
-    void (*call) (struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr);
-    void (*scall)(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr);
-    void (*fcall)(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr);
-    void (*ncall)(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr);
-};
-static inline bool hasJump(vm_code_t *pc);
-static vm_code_t *emit_code(struct vmcode_builder *cb)
-{
-    int i, size = Array_size(cb->codebuf) + 1;
-    vm_code_t last_code = {__(op_exit), __(0), __(0), __(0), __(0)};
-    knh_code_t x, code = malloc_(sizeof(vm_code_t) * size);
-    FOR_EACH_ARRAY(cb->codebuf, x, i) {
-        vm_code_t *xc = x;
-        memcpy(code+i, xc, sizeof(vm_code_t));
-    }
-    FOR_EACH_ARRAY(cb->codebuf, x, i) {
-        x = code + i;
-        if (hasJump(x)) {
-            int j;
-            knh_code_t y;
-            FOR_EACH_ARRAY(cb->codebuf, y, j) {
-                if (j == x->a0.dval) {
-                    //asm volatile("int3");
-                    code[i].a0.ptr = code + j;
-                    //fprintf(stderr, "i=%d j=%d %p %p\n",
-                    //i, j, code[i].a0.ptr, code+i);
-                }
-            }
-        }
-    }
-
-    memcpy(code+i, &last_code, sizeof(vm_code_t));
-
-    FOR_EACH_ARRAY(cb->codebuf, x, i) {
-        delete_(x);
-    }
-
-    cb->codesize = size;
-    delete_(cb->codebuf);
-    code = vm_code_init(cb->vm, code);
-    return code;
-}
-static inline void SetOpBCall(vm_code_t *pc);
-static inline bool isOpCall(vm_code_t *pc);
-static void optimize_code(struct vmcode_builder *cb, struct knh_Method_t *mtd)
-{
-    int i, size = cb->codesize;
-    knh_code_t x;
-    for (i = 0; i < size; i++) {
-        x = mtd->pc + i;
-        if (isOpCall(x) && x->a1.mtd == mtd) {
-            SetOpBCall(x);
-            x->a2.ptr = mtd->pc;
-        }
-    }
-}
-
-#define NEW_OP(op) (new_op(op_##op))
-static inline vm_code_t *new_op(enum opcode op)
-{
-    vm_code_t *code = NEW(vm_code_t);
-    code->c.code = op;
-    code->a0.ival = code->a1.ival = code->a2.ival = 0;
-    return code;
-}
-
-static void nset_f(struct vmcode_builder *cb, Reg_t r, knh_float_t f)
-{
-    knh_code_t code = NEW_OP(nset);
-    code->a0.ival = r;
-    code->a1.fval = f;
-    Array_add(code, cb->codebuf, code);
-}
-static void nset_i(struct vmcode_builder *cb, Reg_t r, knh_data_t d)
-{
-    knh_code_t code = NEW_OP(nset);
-    code->a0.ival = r;
-    code->a1.dval = d;
-    Array_add(code, cb->codebuf, code);
-}
-static void nset(struct vmcode_builder *cb, Reg_t r, knh_value_t v)
-{
-    knh_code_t code = NEW_OP(nset);
-    code->a0.ival = r;
-    code->a1.dval = v.dval;
-    Array_add(code, cb->codebuf, code);
-}
-static void local_start(struct vmcode_builder *cb, int idx)
-{
-    knh_code_t code = NEW_OP(local_start);
-    code->a0.ival = idx;
-    Array_add(code, cb->codebuf, code);
-}
-static void local_end(struct vmcode_builder *cb, int idx)
-{
-    knh_code_t code = NEW_OP(local_end);
-    code->a0.ival = idx;
-    Array_add(code, cb->codebuf, code);
-}
-static void movlr(struct vmcode_builder *cb, int idx, Reg_t r1)
-{
-    knh_code_t code = NEW_OP(movlr);
-    code->a0.ival = idx;
-    code->a1.ival = r1;
-    Array_add(code, cb->codebuf, code);
-}
-static void movrl(struct vmcode_builder *cb, Reg_t r1, int idx)
-{
-    knh_code_t code = NEW_OP(movrl);
-    code->a0.ival = r1;
-    code->a1.ival = idx;
-    Array_add(code, cb->codebuf, code);
-
-}
-static void isub(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3)
-{
-    knh_code_t code = NEW_OP(isub);
-    code->a0.ival = r1;
-    code->a1.ival = r2;
-    code->a2.ival = r3;
-    Array_add(code, cb->codebuf, code);
-}
-static void iadd(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3)
-{
-    knh_code_t code = NEW_OP(iadd);
-    code->a0.ival = r1;
-    code->a1.ival = r2;
-    code->a2.ival = r3;
-    Array_add(code, cb->codebuf, code);
-}
-#define Array_last(a) (Array_n(a, Array_size(a) - 1))
-static void replaceLabelWith(struct label *l, struct vmcode_builder *cb)
-{
-    int i;
-    vm_code_t *x;//, *last_code = Array_last(cb->codebuf);
-    FOR_EACH_ARRAY(cb->codebuf, x, i) {
-        if (x->a0.ptr == l || i == l->index) {
-            x->a0.ival = Array_size(cb->codebuf);
-        }
-    }
-}
-
-static void jilt(struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2)
-{
-    vm_code_t *code = NEW_OP(Jilt);
-    code->a0.ptr = l;
-    code->a1.ival = r1;
-    code->a2.ival = r2;
-    l->replaceLabelWith = replaceLabelWith;
-    l->index = Array_size(cb->codebuf);
-    Array_add(code, cb->codebuf, code);
-}
-static void ret(struct vmcode_builder *cb, Reg_t r)
-{
-    vm_code_t *code = NEW_OP(ret);
-    code->a0.ival = r;
-    Array_add(code, cb->codebuf, code);
-}
-static void bcall(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
-{
-    vm_code_t *code = NEW_OP(bcall);
-    code->a0.ival = r;
-    code->a1.mtd  = (mtd);
-    code->a2.ptr  = ptr;
-    Array_add(code, cb->codebuf, code);
-}
-static void call(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
-{
-    vm_code_t *code = NEW_OP(call);
-    code->a0.ival = r;
-    code->a1.mtd  = (mtd);
-    code->a2.ptr  = ptr;
-    Array_add(code, cb->codebuf, code);
-}
-static void scall(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
-{
-    vm_code_t *code = NEW_OP(scall);
-    code->a0.ival = r;
-    code->a1.mtd  = (mtd);
-    code->a2.ptr  = ptr;
-    Array_add(code, cb->codebuf, code);
-}
-static void fcall(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
-{
-    vm_code_t *code = NEW_OP(fcall);
-    code->a0.ival = r;
-    code->a1.mtd  = (mtd);
-    code->a2.ptr  = ptr;
-    Array_add(code, cb->codebuf, code);
-}
-#define SETf(cb, op) cb->op = op
-typedef struct vmcode_builder vmcode_builder;
-static vmcode_builder *new_vmcode_builder(vm_t *vm)
-{
-    vmcode_builder *cb = cast(vmcode_builder*,malloc_(sizeof(vmcode_builder)));
-    cb->vm = vm;
-    SETf(cb, emit_code);
-    SETf(cb, optimize_code);
-    SETf(cb, local_start);
-    SETf(cb, local_end);
-    SETf(cb, movlr);
-    SETf(cb, movrl);
-    SETf(cb, nset_i);
-    SETf(cb, nset_f);
-    SETf(cb, nset);
-    SETf(cb, iadd);
-    SETf(cb, jilt);
-    SETf(cb, isub);
-    SETf(cb, ret);
-    SETf(cb, bcall);
-    SETf(cb, scall);
-    SETf(cb, fcall);
-    SETf(cb, call);
-    cb->codebuf = Array_new(code);
-    return cb;
-}
-static vmcode_builder *vmcode_builder_init(struct vmcode_builder *cb)
-{
-    cb->codebuf = Array_new(code);
-    return cb;
-}
-
-static void vmcode_builder_delete(struct vmcode_builder *cb)
-{
-    free_(cb);
 }
 
 static int test_vm_builder(void)
@@ -516,7 +253,6 @@ static int test_vm_builder(void)
     vm_delete(vm);
     return ret == (9+8);
 }
-
 static int test_vm_cond(void)
 {
     knh_data_t ret;
@@ -599,7 +335,7 @@ static int test_vm_fibo(void)
 
     struct knh_Method_t *mtd = new_Method(NULL, NULL);
     struct label l1;
-#define __N__ 3
+#define __N__ 36
     cb->nset_i(cb, Reg3, 3);
     cb->jilt(cb, &l1, Arg0, Reg3);
     cb->nset_i(cb, Reg1, 1);
@@ -630,10 +366,8 @@ static int test_vm_fibo(void)
     mtd->pc = pc;
     cb->optimize_code(cb, mtd);
     vm->r.arg[0].ival = __N__;
-    asm volatile("int3");
     vm_exec(vm, pc);
     ret = vm->r.ret.dval;
-    fprintf(stderr, "ret=%d\n", ret);
     vmcode_builder_delete(cb);
     vm_delete(vm);
     return ret == fibo(__N__);

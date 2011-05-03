@@ -118,6 +118,7 @@ static inline int Array_##T##_eq(Array(T) *a1, Array(T) *a2){ \
 #define Array_eq(T, a1, a2)     Array_##T##_eq(a1, a2)
 #define Array_n(a, n) (a->list[n])
 #define Array_size(a) (a->size)
+#define Array_last(a) (Array_n(a, Array_size(a) - 1))
 knh_Array_t *new_Array(void);
 
 #define FOR_EACH_ARRAY(a, x, i) \

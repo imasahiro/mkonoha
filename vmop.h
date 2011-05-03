@@ -95,8 +95,8 @@ enum opcode {
 
 #define vmop_halt()                          _halt()
 #define vmop_exit()                          return
-#define vmop_local_start(i0)                 vm_local_new(vm, NC(0))
-#define vmop_local_end(i0)                   vm_local_delete(vm, NC(0))
+#define vmop_local_start(i0)                 sp = vm_local_new(vm, NC(0))
+#define vmop_local_end(i0)                   sp = vm_local_delete(vm, NC(0))
 #define vmop_movlr(i0, i1)                   LOCAL (0) = N (1)
 #define vmop_movrl(i0, i1)                   N (0) = LOCAL (1)
 #define vmop_nmov(i0, i1)                    N (0) = N (1)
@@ -161,11 +161,12 @@ enum opcode {
 #define vmop_Jfnoin(i0, i1, i2, i3)          if (!(N(1) <= N(2) && N(3) <= N(1))) __JMP__();
 #define vmop_call(i0, i1, i2)                MTD(1)->call(vm, MTD(1)->pc);  P(0) = RET(vm)
 #define vmop_bcall(i0, i1, i2) {\
-    push_addr2(vm, (void**)pc, &&L_call_after);\
+    push_addr3(vm, (void**)sp,(void**)pc, &&L_call_after);\
     pc = (vm_code_t*)OC(2);     \
     DISPATCH(pc);   \
     L_call_after:;  \
     pc = (vm_code_t*) pop_addr(vm);\
+    sp = (value_t*) pop_addr(vm);\
     V(0) = RETv(vm);\
     DISPATCH1(pc);\
 }
@@ -175,7 +176,10 @@ enum opcode {
 #define vmop_ncall_i(i0, i1, i2)             N(0) = ((fa1_i)OC(2)) (NARG(0))
 #define vmop_ncall_p(i0, i1, i2)             P(0) = ((fa1_p)OC(2)) (OARG(0))
 #define vmop_ncall_f(i0, i1, i2)             F(0) = ((fa1_f)OC(2)) (FARG(0))
-#define vmop_ret(i0)                         RETv(vm) = V(0); jmp(pop_addr(vm))
+#define vmop_ret(i0)                         {\
+    RETv(vm) = V(0);\
+    jmp(pop_addr(vm));\
+}
 #define vmop_jmp(i0)                         jmp(OC(0))
 #define vmop_cast(i0, i1)                    O (0) = FCAST(0) (P(1), N(1))
 #define vmop_ngetidx(i0, i1, i2)             V (0) = Array_get(data,  NA(1), N(2))
