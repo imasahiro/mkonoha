@@ -91,6 +91,13 @@ static void nset(struct vmcode_builder *cb, Reg_t r, knh_value_t v)
     code->a1.dval = v.dval;
     emit(cb->codebuf, code);
 }
+static void oset(struct vmcode_builder *cb, Reg_t r, knh_Object_t *o)
+{
+    knh_code_t code = NEW_OP(oset);
+    code->a0.ival = r;
+    code->a1.o    = o;
+    emit(cb->codebuf, code);
+}
 static void local_start(struct vmcode_builder *cb, int idx)
 {
     knh_code_t code = NEW_OP(local_start);
@@ -215,6 +222,7 @@ struct vmcode_builder *new_vmcode_builder(vm_t *vm)
     SETf(cb, scall);
     SETf(cb, fcall);
     SETf(cb, call);
+    SETf(cb, oset);
     cb->codebuf = Array_new(code);
     return cb;
 }

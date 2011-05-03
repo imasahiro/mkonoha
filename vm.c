@@ -31,20 +31,6 @@ struct vm_code {
 };
 
 #define __(n) {(knh_int_t)n}
-#define VM_MAX_REG_SIZE 16
-#define VM_REG_SIZE     8
-struct vm {
-    union {
-        value_t regs_[VM_MAX_REG_SIZE];
-        struct {
-            value_t reg[8];
-            value_t ret;
-            value_t arg[VM_MAX_REG_SIZE - 8 - 1];
-        } r;
-    };
-    knh_value_t *sp;
-};
-
 typedef void (*fvm)(vm_t *);
 typedef void (*fvm2)(vm_t *, vm_code_t *);
 typedef knh_Object_t *(*fcast)(knh_Object_t *o1, knh_int_t v);
@@ -86,7 +72,7 @@ static void dump(knh_value_t *sp)
 {
     int i;
     for (i = 0; i < 5; i++) {
-        fprintf(stderr, "sp%d=%d,", i, sp[i].ival);
+        fprintf(stderr, "sp%d=%lld,", i, sp[i].ival);
     }
     fprintf(stderr, "\n");
 }
@@ -184,7 +170,8 @@ static knh_int_t new_unbox(knh_class_t cid, knh_Object_t *o)
 static void _halt(void)
 {
     //fprintf(stderr, "halt!!\n");
-    exit(EXIT_FAILURE);
+    //exit(EXIT_FAILURE);
+    asm volatile("int3");
 }
 
 static void **THCODE__ = NULL;

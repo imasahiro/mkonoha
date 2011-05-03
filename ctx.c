@@ -189,12 +189,16 @@ static void construct_default_value(CTX ctx)
         ((struct context *)ctx)->alias_size = alias_size;
     }
 }
+static knh_string_t _stdout = {11, "/dev/stdout"};
+static knh_string_t _stderr = {11, "/dev/stderr"};
+static knh_string_t _wmode = {1, "w"};
 static void context_init_stream(struct context *ctx)
 {
-    ((struct context *)ctx)->in  = new_io("/dev/stdin",  "r", 0);
-    ((struct context *)ctx)->out = new_io("/dev/stdout", "w", 0);
-    ((struct context *)ctx)->err = new_io("/dev/stderr", "w", 0);
-
+    ((struct context *)ctx)->out = new_OutputStream(&_stdout, &_wmode);
+    ((struct context *)ctx)->err = new_OutputStream(&_stderr, &_wmode);
+    ((struct context *)ctx)->_in  = new_io("/dev/stdin",  "r", 0);
+    ((struct context *)ctx)->_out = IOStream_getIO(STREAM(ctx->out));
+    ((struct context *)ctx)->_err = IOStream_getIO(STREAM(ctx->err));
 }
 static Ctx *new_context(void)
 {
@@ -204,16 +208,19 @@ static Ctx *new_context(void)
     context_init_stream(ctx);
     ctx->vm = vm_new();
     ctx->cb = NULL;
+    ctx->blkdecls = (Array(Tuple)**)malloc_(sizeof(Array(Tuple)*) * 32);
+    ctx->blklevel = 0;
     return ctx;
 }
 
-static void context_delete(struct context *ctx)
+static void context_delete(CTX ctx_)
 {
+    struct context *ctx = (struct context *) ctx_;
     delete_(ctx->types);
     delete_(ctx->alias);
-    io_delete(ctx->in);
-    io_delete(ctx->out);
-    io_delete(ctx->err);
+    io_delete(ctx->_in);
+    OutputStream_delete(ctx->out);
+    OutputStream_delete(ctx->err);
     vm_delete(ctx->vm);
     delete_(ctx);
 }

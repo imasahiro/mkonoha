@@ -39,6 +39,7 @@ struct vmcode_builder {
     void (*nset_f)(struct vmcode_builder *, Reg_t, knh_float_t);
     void (*nset_i)(struct vmcode_builder *, Reg_t, knh_data_t);
     void (*nset)(struct vmcode_builder *, Reg_t, knh_value_t);
+    void (*oset)(struct vmcode_builder *cb, Reg_t r, struct knh_Object_t *o);
     void (*iadd)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
     void (*isub)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
     void (*imul)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
@@ -51,6 +52,20 @@ struct vmcode_builder {
     void (*fcall)(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr);
     void (*ncall)(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr);
 };
+#define VM_MAX_REG_SIZE 16
+#define VM_REG_SIZE     8
+struct vm {
+    union {
+        knh_value_t regs_[VM_MAX_REG_SIZE];
+        struct {
+            knh_value_t reg[8];
+            knh_value_t ret;
+            knh_value_t arg[VM_MAX_REG_SIZE - 8 - 1];
+        } r;
+    };
+    knh_value_t *sp;
+};
+
 
 #endif /* end of include guard: VM_H */
 

@@ -190,7 +190,7 @@ struct knh_OutputStream_t {
     struct io     *io;
 };
 typedef struct knh_OutputStream_t knh_OutputStream_t;
-static knh_OutputStream_t *new_OutputStream(knh_string_t *name, knh_string_t *mode)
+knh_OutputStream_t *new_OutputStream(knh_string_t *name, knh_string_t *mode)
 {
     const char *md;
     knh_OutputStream_t *os = new_(OutputStream);
@@ -202,7 +202,7 @@ static knh_OutputStream_t *new_OutputStream(knh_string_t *name, knh_string_t *mo
     os->io = new_io(name->txt, md, FILE_IO);
     return os;
 }
-static void OutputStream_delete(knh_OutputStream_t *os)
+void OutputStream_delete(knh_OutputStream_t *os)
 {
     os->io->sync_(os->io);
     delete_(os);
@@ -249,7 +249,7 @@ static void knh_object_write(struct io *io, knh_class_t cid, knh_Object_t *o)
     typeinfo->write_(ctx, io, o);
 }
 
-static void OutputStream_print(knh_OutputStream_t *os, knh_class_t cid, knh_value_t v)
+void OutputStream_print(knh_OutputStream_t *os, knh_class_t cid, knh_value_t v)
 {
     struct io *io = os->io;
     char cbuf[128];
@@ -271,10 +271,23 @@ static void OutputStream_print(knh_OutputStream_t *os, knh_class_t cid, knh_valu
     }
     knh_object_write(os->io, cid, v.o);
 }
-static void OutputStream_println(knh_OutputStream_t *os, knh_class_t cid, knh_value_t v)
+void OutputStream_println(knh_OutputStream_t *os, knh_class_t cid, knh_value_t v)
 {
     OutputStream_print(os, cid, v);
     io_puts(os->io, "\n", 1);
+}
+void knh_OutputStream_print(struct vm *vm)
+{
+    knh_OutputStream_t *os = cast(knh_OutputStream_t *,vm->r.arg[0].o);
+    knh_class_t cid = cast(knh_class_t, vm->r.arg[1].ival);
+    knh_value_t v;
+    v.dval = cast(knh_data_t, vm->r.arg[2].dval);
+    OutputStream_print(os, cid, v);
+}
+
+struct io *IOStream_getIO(struct knh_OutputStream_t *s)
+{
+    return s->io;
 }
 
 static void stream_init(void)

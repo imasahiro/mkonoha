@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "stream.h"
 #include "vm.h"
+#include "string.c"
 #ifndef TEST
 #define KONOHA
 #endif
@@ -46,10 +47,16 @@ struct context {
     int alias_size;
     Array(Tuple) *decl_list;
     struct vm *vm;
-    struct io *out;
-    struct io *err;
-    struct io *in;
+    struct io *_out;
+    struct io *_err;
+    struct io *_in;
+    struct knh_OutputStream_t *out;
+    struct knh_OutputStream_t *err;
+    struct knh_InputStream_t  *in;
+
     struct vmcode_builder *cb;
+    Array(Tuple) **blkdecls;
+    int blklevel;
 };
 
 struct alias_info {
@@ -66,6 +73,7 @@ struct knh_Token_t {
 };
 
 static Ctx *new_context(void);
+static void context_delete(CTX ctx);
 static knh_class_t append_new_class(knh_class_t bcid, Array(class) *param);
 extern FILE *konoha_in;
 extern int konoha_parse(CTX ctx);
@@ -76,10 +84,14 @@ int main(int argc, char **argv)
 {
     if (argc >= 2) {
         CTX ctx = new_context();
+        struct vm *vm;
         g_ctx = cast(struct context*, ctx);
         konoha_in = fopen(argv[1], "r");
         konoha_parse(ctx);
+        vm = ctx->vm;
+        vm_exec(vm, ctx->cb->emit_code(ctx->cb));
         fclose(konoha_in);
+        context_delete(ctx);
         return 0;
     } else {
         fprintf(stderr, "%s filename ...\n", argv[0]);
@@ -126,8 +138,8 @@ void dbg_p(const char *file, const char *func, int line, const char *fmt, ...)
 void knh_dump(CTX ctx, knh_Object_t *o)
 {
     struct type_info *typeinfo = ctx->types + o->h.classinfo;
-    typeinfo->write_(ctx, ctx->err, o);
-    io_puts(ctx->err, "\n", 1);
+    typeinfo->write_(ctx, ctx->_err, o);
+    io_puts(ctx->_err, "\n", 1);
 }
 
 #include "ctx.c"
@@ -317,7 +329,8 @@ static knh_class_t typing1(knh_class_t dst)
     return TYPE_UNTYPED;
 }
 
-
+#define IS_ConstInt(o) (Token_CODE(o) == INTEGER_CONST)
+#define IS_ConstFloat(o) (Token_CODE(o) == FLOAT_CONST)
 knh_Token_t *build_assignment_expr(KOperator op, knh_Token_t *t1, knh_Token_t *t2)
 {
     knh_Token_t *t = new_(Token);
@@ -430,33 +443,116 @@ static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
     }
 }
 
+#define CB (ctx->cb)
+static void append_to_current_decls_tpl(Tuple(Token, Token) *tpl, int level)
+{
+    Array(Tuple) *a = g_ctx->blkdecls[level];
+    if (!a) {
+        a = Array_new(Tuple);
+        g_ctx->blkdecls[level] = a;
+    }
+    Array_add(Tuple, a, cast(knh_Tuple_t*,tpl));
+}
+static void append_to_current_decls(knh_Token_t *name, knh_Token_t *val, int level)
+{
+    Tuple(Token, Token) *tpl = Tuple_new_init(Token, Token, name, val);
+    append_to_current_decls_tpl(tpl, level);
+}
+static Array(Tuple) *get_current_level(int level)
+{
+    Array(Tuple) *a = g_ctx->blkdecls[level];
+    if (!a) {
+        a = Array_new(Tuple);
+        g_ctx->blkdecls[level] = a;
+    }
+    return a;
+}
+static void asm_variable_name(Ctx *ctx, Reg_t r, knh_string_t *name)
+{
+    Array(Tuple) *a = get_current_level(ctx->blklevel);
+    knh_Tuple_t *x;
+    Tuple(Token, Token) *tpl;
+    int i;
+    FOR_EACH_ARRAY(a, x, i) {
+        tpl = cast(Tuple(Token, Token)*, x);
+        if (string_cmp(tpl->o1->data.str, name) == 0) {
+            if (tpl->o1->type == TYPE_String) {
+                CB->oset(CB, r, tpl->o2->data.o);
+            } else if (tpl->o1->type == TYPE_Integer) {
+                CB->nset_i(CB, r, tpl->o2->data.dval);
+            } else if (tpl->o1->type == TYPE_Float) {
+                CB->nset_f(CB, r, tpl->o2->data.fval);
+            } else {
+                TODO();
+            }
+        }
+    }
+}
+
+static knh_string_t __equal = {1, "="};
+struct asmdata {
+    union {
+        Reg_t r;
+        knh_value_t v;
+    } v1, v2;
+};
+static void asm_call_print(Ctx *ctx, knh_string_t *name, knh_class_t cid)
+{
+    CB->oset(CB, Arg0, O(ctx->out));
+    CB->nset_i(CB, Arg1, TYPE_String);
+    CB->oset(CB, Arg2, O(String_concat1(name, &__equal)));
+    CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+    CB->oset(CB, Arg0, O(ctx->out));
+    CB->nset_i(CB, Arg1, TYPE_Integer);
+    asm_variable_name(ctx, Arg2, name);
+    CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+}
+
 static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
 {
+    int i;
+    Array(Token) *a = cast(Array(Token)*, stmt->data.o);
+    knh_Token_t *x, *func;
     T_DUMP(stmt);
+    func = Array_n(a, 0);
+    FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
+        if (Token_CODE(x) == IDENTIFIER_NODE) {
+            knh_string_t *name = x->data.str;
+            if (string_cmp_char(name, "print", 5)) {
+                asm_call_print(ctx, x->data.str, x->type);
+            }
+            //asm volatile("int3");
+        } else if (Token_isConst(x)) {
+            asm volatile("int3");
+        }
+    }
+    //t->code   = CALL_EXPR;
+    //t->type   = TYPE_UNTYPED;
+    //t->data.o = O(a);
+ 
 }
 
 static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
 {
-    struct vmcode_builder *cb = ctx->cb;
-    knh_Token_t *tmp;
     Tuple(Token, Token) *tpl;
     T_DUMP(stmt);
     tpl = cast(Tuple(Token, Token)*, stmt->data.o);
-    if (!Token_isConst(tpl->o2)) {
-        /* TODO */
-        //tmp = asm_expr(tpl->o2);
-    } else {
-#define IS_ConstInt(o) (Token_CODE(o) == INTEGER_CONST)
-#define IS_ConstFloat(o) (Token_CODE(o) == FLOAT_CONST)
+    if (Token_isConst(tpl->o2)) {
         knh_value_t v;
         if (IS_ConstInt(tpl->o2)) {
             v.ival = tpl->o2->data.ival;
-            cb->nset_i(cb, Reg1, v.dval);
+            CB->nset_i(CB, Reg1, v.dval);
         } else if (IS_ConstFloat(tpl->o2)) {
             v.fval = tpl->o2->data.fval;
-            cb->nset_f(cb, Reg1, v.fval);
+            CB->nset_f(CB, Reg1, v.fval);
+        } else {
+            TODO();
         }
+        tpl->o1->type = tpl->o2->type;
+    } else {
+        TODO();
     }
+    append_to_current_decls_tpl(tpl, ctx->blklevel);
 }
 
 int konoha_error (const char *msg)
