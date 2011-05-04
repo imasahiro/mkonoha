@@ -55,6 +55,18 @@ struct knh_ObjectField_t {
     knh_value_t unused3;
 };
 
+struct vm;
+struct vm_code;
+typedef void (*fvm)(struct vm *);
+typedef void (*fvm2)(struct vm *, struct vm_code *);
+typedef knh_Object_t *(*fcast)(knh_Object_t *o1, knh_int_t v);
+
+struct knh_Method_t {
+    knh_hObject_t h;
+    fvm2 call;
+    struct vm_code *pc;
+};
+
 enum object_type {
     TYPE_Object,
     TYPE_Integer,

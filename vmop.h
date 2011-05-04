@@ -1,5 +1,6 @@
 enum opcode {
     op_halt,
+    op_enter,
     op_exit,
     op_local_start,
     op_local_end,
@@ -74,12 +75,48 @@ enum opcode {
     op_ncall_p,
     op_ncall_f,
     op_ret,
+    op_retv,
     op_jmp,
     op_cast,
     op_ogetidx,
     op_osetidx,
     op_ngetidx,
     op_nsetidx,
+    /* opt */
+    op_iaddC,
+    op_isubC,
+    op_imulC,
+    op_idivC,
+    op_imodC,
+    op_ieqC,
+    op_ineC,
+    op_igtC,
+    op_iltC,
+    op_igeC,
+    op_ileC,
+    op_JieqC,
+    op_JineC,
+    op_JigtC,
+    op_JiltC,
+    op_JigeC,
+    op_JileC,
+    op_faddC,
+    op_fsubC,
+    op_fmulC,
+    op_fdivC,
+    op_feqC,
+    op_fneC,
+    op_fgtC,
+    op_fltC,
+    op_fgeC,
+    op_fleC,
+    op_JfeqC,
+    op_JfneC,
+    op_JfgtC,
+    op_JfltC,
+    op_JfgeC,
+    op_JfleC,
+    /* unused */
     op_thcode,
     op_unused0,
     op_unused1,
@@ -94,6 +131,7 @@ enum opcode {
 
 
 #define vmop_halt()                          _halt()
+#define vmop_enter()                         
 #define vmop_exit()                          return
 #define vmop_local_start(i0)                 sp = vm_local_new(vm, NC(0))
 #define vmop_local_end(i0)                   sp = vm_local_delete(vm, NC(0))
@@ -163,7 +201,7 @@ enum opcode {
 #define vmop_bcall(i0, i1, i2) {\
     push_addr3(vm, (void**)sp,(void**)pc, &&L_call_after);\
     pc = (vm_code_t*)OC(2);     \
-    DISPATCH(pc);   \
+    DISPATCH2(pc);   \
     L_call_after:;  \
     pc = (vm_code_t*) pop_addr(vm);\
     sp = (value_t*) pop_addr(vm);\
@@ -176,17 +214,19 @@ enum opcode {
 #define vmop_ncall_i(i0, i1, i2)             N(0) = ((fa1_i)OC(2)) (NARG(0))
 #define vmop_ncall_p(i0, i1, i2)             P(0) = ((fa1_p)OC(2)) (OARG(0))
 #define vmop_ncall_f(i0, i1, i2)             F(0) = ((fa1_f)OC(2)) (FARG(0))
-#define vmop_ret(i0)                         {\
-    RETv(vm) = V(0);\
+#define __vmop_ret(v0)                       {\
+    RETv(vm) = v0;\
     jmp(pop_addr(vm));\
 }
+#define vmop_ret(i0)                         __vmop_ret(V(0))
+#define vmop_retv(i0)                        __vmop_ret(NC(0))
 #define vmop_jmp(i0)                         jmp(OC(0))
 #define vmop_cast(i0, i1)                    O (0) = FCAST(0) (P(1), N(1))
 #define vmop_ngetidx(i0, i1, i2)             V (0) = Array_get(data,  NA(1), N(2))
 #define vmop_ogetidx(i0, i1, i2)             O (0) = Array_get(Object, OA(1), N(2))
 #define vmop_nsetidx(i0, i1, i2)             Array_set(data,  NA(1), N(2), V(0))
 #define vmop_osetidx(i0, i1, i2)             Array_set(Object, OA(1), N(2), O(0))
-#define vmop_thcode()                        __thcode_init(pc, THCODE); jmp(pop_addr(vm))
+#define vmop_thcode()                        __thcode_init__(pc, THCODE); jmp(pop_addr(vm))
 #define vmop_unused0(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused1(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused2(i0)                     FUNC(0) (vm, pc)
@@ -195,3 +235,40 @@ enum opcode {
 #define vmop_unused5(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused6(i0)                     FUNC(0) (vm, pc)
 #define vmop_unused7(i0)                     FUNC(0) (vm, pc)
+
+/* opt */
+#define vmop_iaddC(i0, i1, i2)                N (0) = N(1) + NC(2)
+#define vmop_isubC(i0, i1, i2)                N (0) = N(1) - NC(2)
+#define vmop_imulC(i0, i1, i2)                N (0) = N(1) * NC(2)
+#define vmop_idivC(i0, i1, i2)                N (0) = N(1) / NC(2)
+#define vmop_imodC(i0, i1, i2)                N (0) = N(1) % NC(2)
+#define vmop_ieqC(i0, i1, i2)                 N (0) = N(1) == NC(2)
+#define vmop_ineC(i0, i1, i2)                 N (0) = N(1) != NC(2)
+#define vmop_igtC(i0, i1, i2)                 N (0) = N(1) >  NC(2)
+#define vmop_iltC(i0, i1, i2)                 N (0) = N(1) <  NC(2)
+#define vmop_igeC(i0, i1, i2)                 N (0) = N(1) >= NC(2)
+#define vmop_ileC(i0, i1, i2)                 N (0) = N(1) <= NC(2)
+#define vmop_JieqC(i0, i1, i2)                if (!(N(1) == NC(2))) __JMP__()
+#define vmop_JineC(i0, i1, i2)                if (!(N(1) != NC(2))) __JMP__()
+#define vmop_JigtC(i0, i1, i2)                if (!(N(1) >  NC(2))) __JMP__()
+#define vmop_JiltC(i0, i1, i2)                if (!(N(1) <  NC(2))) __JMP__()
+#define vmop_JigeC(i0, i1, i2)                if (!(N(1) >= NC(2))) __JMP__()
+#define vmop_JileC(i0, i1, i2)                if (!(N(1) <= NC(2))) __JMP__()
+
+#define vmop_faddC(i0, i1, i2)                F (0) = F(1) + FC(2)
+#define vmop_fsubC(i0, i1, i2)                F (0) = F(1) - FC(2)
+#define vmop_fmulC(i0, i1, i2)                F (0) = F(1) * FC(2)
+#define vmop_fdivC(i0, i1, i2)                F (0) = F(1) / FC(2)
+#define vmop_feqC(i0, i1, i2)                 F (0) = F(1) == FC(2)
+#define vmop_fneC(i0, i1, i2)                 F (0) = F(1) != FC(2)
+#define vmop_fgtC(i0, i1, i2)                 F (0) = F(1) >  FC(2)
+#define vmop_fltC(i0, i1, i2)                 F (0) = F(1) <  FC(2)
+#define vmop_fgeC(i0, i1, i2)                 F (0) = F(1) >= FC(2)
+#define vmop_fleC(i0, i1, i2)                 F (0) = F(1) <= FC(2)
+#define vmop_JfeqC(i0, i1, i2)                if (!(F(1) == FC(2))) __JMP__();
+#define vmop_JfneC(i0, i1, i2)                if (!(F(1) != FC(2))) __JMP__();
+#define vmop_JfgtC(i0, i1, i2)                if (!(F(1) >  FC(2))) __JMP__();
+#define vmop_JfltC(i0, i1, i2)                if (!(F(1) <  FC(2))) __JMP__();
+#define vmop_JfgeC(i0, i1, i2)                if (!(F(1) >= FC(2))) __JMP__();
+#define vmop_JfleC(i0, i1, i2)                if (!(F(1) <= FC(2))) __JMP__();
+

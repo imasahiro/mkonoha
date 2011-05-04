@@ -9,8 +9,6 @@ static inline void *__new(size_t size, knh_class_t cid)
     o->h.classinfo  = cid;
     return o;
 }
-
-
 knh_Array_t *new_Array(void)
 {
     knh_Array_t *a = new_(Array);
@@ -293,14 +291,20 @@ static int test_vm_bcall(void)
     cb = new_vmcode_builder(vm);
     vm_code_t *pc;
 
+    struct knh_Method_t *mtd1 = new_Method(NULL, NULL);
+    struct knh_Method_t *mtd2 = new_Method(NULL, NULL);
     cb->nset_i(cb, Reg1, 20);
     cb->ret(cb,  Reg1);
     pc = cb->emit_code(cb);
+    mtd1->pc = pc;
 
     cb = vmcode_builder_init(cb);
-    cb->bcall(cb, Reg4, NULL, pc);
+    cb->call(cb, Reg4, mtd1, pc);
     cb->ret(cb,  Reg4);
     pc = cb->emit_code(cb);
+    mtd2->pc = pc;
+
+    cb->optimize_code(cb, mtd2);
     vm->r.arg[0].ival = 9;
     vm_exec(vm, pc);
     ret = vm->r.ret.dval;
@@ -309,13 +313,6 @@ static int test_vm_bcall(void)
     return ret == 20;
 }
 
-static struct knh_Method_t *new_Method(fvm2 func, vm_code_t *pc)
-{
-    struct knh_Method_t *mtd = new_(Method);
-    mtd->call = func;
-    mtd->pc   = pc;
-    return mtd;
-}
 static int fibo(int n)
 {
     if (n < 3) {
@@ -334,7 +331,9 @@ static int test_vm_fibo(void)
 
     struct knh_Method_t *mtd = new_Method(NULL, NULL);
     struct label l1;
-#define __N__ 10
+#ifndef __N__
+#define __N__ 3
+#endif
     cb->nset_i(cb, Reg3, 3);
     cb->jilt(cb, &l1, Arg0, Reg3);
     cb->nset_i(cb, Reg1, 1);
@@ -397,14 +396,14 @@ static int test_vm_nmov_omov(void)
 }
 
 static struct testcase __TESTCASE__[] = {
-    TESTCASE(test_iadd_nset),
-    TESTCASE(test_fadd_nset),
-    TESTCASE(test_local_start),
-    TESTCASE(test_icast_fcast),
-    TESTCASE(test_int_op),
-    TESTCASE(test_float_op),
-    TESTCASE(test_fcall),
-    TESTCASE(test_ncall),
+    //TESTCASE(test_iadd_nset),
+    //TESTCASE(test_fadd_nset),
+    //TESTCASE(test_local_start),
+    //TESTCASE(test_icast_fcast),
+    //TESTCASE(test_int_op),
+    //TESTCASE(test_float_op),
+    //TESTCASE(test_fcall),
+    //TESTCASE(test_ncall),
     TESTCASE(test_vm_builder),
     TESTCASE(test_vm_cond),
     TESTCASE(test_vm_bcall),

@@ -4,9 +4,11 @@ DEF_ARRAY_S_OP(code);
 static inline bool hasJump(vm_code_t *pc);
 static vm_code_t *emit_code(struct vmcode_builder *cb)
 {
-    int i, size = Array_size(cb->codebuf) + 1;
+    int i, size = Array_size(cb->codebuf) + 2;
     vm_code_t last_code = {__(op_exit), __(0), __(0), __(0), __(0)};
     knh_code_t x, code = malloc_(sizeof(vm_code_t) * size);
+    fprintf(stderr, "base ptr=%p, %p\n", code, code+1);
+    code = code + 1;
     FOR_EACH_ARRAY(cb->codebuf, x, i) {
         vm_code_t *xc = x;
         memcpy(code+i, xc, sizeof(vm_code_t));
@@ -40,15 +42,19 @@ static vm_code_t *emit_code(struct vmcode_builder *cb)
 }
 static inline void SetOpBCall(vm_code_t *pc);
 static inline bool isOpCall(vm_code_t *pc);
+#define OBJ(o) (cast(knh_Object_t*, o))
 static void optimize_code(struct vmcode_builder *cb, struct knh_Method_t *mtd)
 {
     int i, size = cb->codesize;
     knh_code_t x;
     for (i = 0; i < size; i++) {
         x = mtd->pc + i;
-        if (isOpCall(x) && x->a1.mtd == mtd) {
-            SetOpBCall(x);
-            x->a2.ptr = mtd->pc;
+        if (isOpCall(x) && OBJ(x->a1.mtd)->h.classinfo == TYPE_Method) {
+            knh_Method_t *mtd_ = x->a1.mtd;
+            if (mtd_->pc) {
+                SetOpBCall(x);
+                x->a2.ptr = mtd_->pc + 1/*enter*/;
+            }
         }
     }
 }
@@ -60,13 +66,87 @@ static inline vm_code_t *new_op(enum opcode op)
     code->a0.ival = code->a1.ival = code->a2.ival = 0;
     return code;
 }
+static bool IS_int_op(intptr_t code)
+{
+    return (
+        (code == op_iadd) ||
+        (code == op_isub) ||
+        (code == op_imul) ||
+        (code == op_idiv));
+}
+static bool IS_int_cond(intptr_t code)
+{
+    return (
+        (code == op_ieq) ||
+        (code == op_ine) ||
+        (code == op_igt) ||
+        (code == op_ilt) ||
+        (code == op_ige) ||
+        (code == op_ile));
+}
+static bool IS_int_jmp(intptr_t code)
+{
+    return (
+        (code == op_Jieq) ||
+        (code == op_Jine) ||
+        (code == op_Jigt) ||
+        (code == op_Jilt) ||
+        (code == op_Jige) ||
+        (code == op_Jile));
+}
+#define int_const_op(code) (op_iaddC + code - op_iadd)
+#define int_const_cond(code) (op_ieqC + code - op_ieq)
+#define int_const_jmp(code) (op_JieqC + code - op_Jieq)
 static void emit(Array(code) *codebuf, knh_code_t code)
 {
     knh_code_t last_code;
     if (Array_size(codebuf) > 0) {
         last_code = Array_last(codebuf);
-        if (last_code->c.code == op_nset && code->c.code == op_fadd) {
+        if (last_code->c.code == op_nset && IS_int_op(code->c.code)) {
+            if (last_code->a0.ival == code->a2.ival) {
+                knh_data_t d = last_code->a1.dval;
+                last_code->c.code = int_const_op(code->c.code);;
+                last_code->a0.ival = code->a0.ival;
+                last_code->a1.ival = code->a1.ival;
+                last_code->a2.dval = d;
+                delete_(code);
+                return;
+            }
         }
+        if (last_code->c.code == op_nset && IS_int_cond(code->c.code)) {
+            if (last_code->a0.ival == code->a2.ival) {
+                knh_data_t d = last_code->a1.dval;
+                struct label *l = (struct label*) code->a0.ptr;
+                l->index -= 1;
+                last_code->c.code = int_const_cond(code->c.code);;
+                last_code->a0.ival = code->a0.ival;
+                last_code->a1.ival = code->a1.ival;
+                last_code->a2.dval = d;
+                delete_(code);
+                return;
+            }
+        }
+        if (last_code->c.code == op_nset && IS_int_jmp(code->c.code)) {
+            if (last_code->a0.ival == code->a2.ival) {
+                knh_data_t d = last_code->a1.dval;
+                last_code->c.code = int_const_jmp(code->c.code);;
+                last_code->a0.ival = code->a0.ival;
+                last_code->a1.ival = code->a1.ival;
+                last_code->a2.dval = d;
+                delete_(code);
+                return;
+            }
+        }
+        if (last_code->c.code == op_nset && code->c.code == op_ret) {
+            if (last_code->a0.ival == code->a0.ival) {
+                knh_data_t d = last_code->a1.dval;
+                last_code->c.code = op_retv;
+                last_code->a0.ival = d;
+                delete_(code);
+                return;
+            }
+        }
+
     }
     Array_add(code, codebuf, code);
 }
@@ -159,7 +239,7 @@ static void replaceLabelWith(struct label *l, struct vmcode_builder *cb)
     int i;
     vm_code_t *x;
     FOR_EACH_ARRAY(cb->codebuf, x, i) {
-        if (x->a0.ptr == l || i == l->index) {
+        if (hasJump(x) && (x->a0.ptr == l || i == l->index)) {
             x->a0.ival = Array_size(cb->codebuf);
         }
     }

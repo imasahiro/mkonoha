@@ -165,7 +165,7 @@ static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
         FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
             if (Token_CODE(x) == IDENTIFIER_NODE) {
                 knh_string_t *name = x->data.str;
-                //asm volatile("int3");
+                asm volatile("int3");
             } else if (Token_isConst(x)) {
                 asm volatile("int3");
             }
@@ -228,79 +228,53 @@ static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x)
             break;
         }
         OPCASE(Plus) {
-            Reg_t r0 = asm_0(ctx, x0);
-            Reg_t r1 = asm_0(ctx, x1);
+            Reg_t r0, r1;
+            if (Token_isConst(x0) && Token_isConst(x1)) {
+                Reg_t rtmp = Reg4;
+                if (x0->type == TYPE_Integer) {
+                    if (x1->type == TYPE_Integer) {
+                        x->type = TYPE_Integer;
+                        knh_int_t val = x0->data.ival + x1->data.ival;
+                        CB->nset_i(CB, rtmp, val);
+                        return rtmp;
+                    } else if (x1->type == TYPE_Float) {
+                        x->type = TYPE_Float;
+                        knh_float_t val = (knh_float_t) x0->data.ival + x1->data.fval;
+                        CB->nset_f(CB, rtmp, val);
+                        return rtmp;
+                    }
+                } else if (x0->type == TYPE_Float) {
+                    if (x1->type == TYPE_Integer) {
+                        x->type = TYPE_Float;
+                        knh_float_t val = x0->data.fval + (knh_float_t) x1->data.ival;
+                        CB->nset_f(CB, rtmp, val);
+                        return rtmp;
+                    } else if (x1->type == TYPE_Float) {
+                        x->type = TYPE_Float;
+                        knh_float_t val = x0->data.fval + x1->data.fval;
+                        CB->nset_f(CB, rtmp, val);
+                        return rtmp;
+                    }
+                }
+            }
+            r0 = asm_0(ctx, x0);
+            r1 = asm_0(ctx, x1);
             if (x0->type == TYPE_Integer) {
                 Reg_t rtmp = Reg4;
                 if (x1->type == TYPE_Integer) {
-                    if (Token_isConst(x0)) {
-                        if (Token_isConst(x1)) {
-                            x->type = TYPE_Integer;
-                            knh_int_t val = x0->data.ival + x1->data.ival;
-                            CB->nset_i(CB, rtmp, val);
-                            return rtmp;
-                        } else {
-                            Reg_t r1 = asm_0(ctx, x1);
-                            CB->nset_i(CB, rtmp, x0->data.ival);
-                            CB->iadd(CB, rtmp, r1, rtmp);
-                            TODO();
-                        }
-                    } else {
-                        TODO();
-                    }
-                } else if (x1->type == TYPE_Float) {
-                    if (Token_isConst(x0)) {
-                        if (Token_isConst(x1)) {
-                            x->type = TYPE_Float;
-                            knh_float_t val = (knh_float_t) x0->data.ival + x1->data.fval;
-                            CB->nset_f(CB, rtmp, val);
-                            return rtmp;
-                        } else {
-                            Reg_t r1 = asm_0(ctx, x1);
-                            CB->nset_i(CB, rtmp, (knh_float_t)x1->data.ival);
-                            CB->iadd(CB, rtmp, r1, rtmp);
-                            TODO();
-                        }
-                    } else {
-                        TODO();
-                    }
+                    x->type = TYPE_Integer;
+                    knh_int_t val = x0->data.ival + x1->data.ival;
+                    CB->nset_i(CB, rtmp, val);
+                    return rtmp;
+                } else {
+                    Reg_t r1 = asm_0(ctx, x1);
+                    CB->nset_i(CB, rtmp, x0->data.ival);
+                    CB->iadd(CB, rtmp, r1, rtmp);
+                    TODO();
                 }
+            } else {
+                TODO();
             }
-            else if (x0->type == TYPE_Float) {
-                Reg_t rtmp = Reg4;
-                if (x1->type == TYPE_Integer) {
-                    if (Token_isConst(x0)) {
-                        if (Token_isConst(x1)) {
-                            x->type = TYPE_Float;
-                            knh_float_t val = x0->data.fval + (knh_float_t) x1->data.ival;
-                            CB->nset_f(CB, rtmp, val);
-                            return rtmp;
-                        } else {
-                            Reg_t r1 = asm_0(ctx, x1);
-                            CB->nset_i(CB, rtmp, (knh_float_t)x1->data.ival);
-                            CB->iadd(CB, rtmp, r1, rtmp);
-                            TODO();
-                        }
-                    } else {
-                        TODO();
-                    }
-                } else if (x1->type == TYPE_Float) {
-                    if (Token_isConst(x0)) {
-                        if (Token_isConst(x1)) {
-                            x->type = TYPE_Float;
-                            knh_float_t val = x0->data.fval + x1->data.fval;
-                            CB->nset_f(CB, rtmp, val);
-                            return rtmp;
-                        } else {
-                            TODO();
-                        }
-                    } else {
-                        TODO();
-                    }
-                }
-            }
-            TODO();
-            break;
         }
         default:
             asm volatile("int3");
