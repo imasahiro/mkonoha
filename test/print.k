@@ -8,3 +8,7 @@ print 10.0, 20;
 print 10.0, 20.0;
 print 10, 20.0;
 print "abcd";
+print 10 + 20;
+print 10.0 + 20;
+print 10.0 + 30.0;
+print 10 + 40.0;

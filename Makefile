@@ -41,6 +41,7 @@ build/konoha.o : ./konoha.c $(KNH_HEADERS) ./ctx.c ./stream.c ./vm.c ./kstring.c
 build/vmtest: ./test/vm_test.c ./vm.c $(KNH_HEADERS) ./vmop.h
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $<
 
+vm.c: vm.h vmbuilder.c
 
 .PHONY: clean
 clean:

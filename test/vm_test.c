@@ -185,7 +185,6 @@ static int test_fcall(void)
     pc = vm_code_init(vm, code);
     vm_exec(vm, pc);
     if (vm->r.ret.ival != 10 + 20 + 30) return 0;
-#undef _code_
     vm_delete(vm);
     return 1;
 }
@@ -335,7 +334,7 @@ static int test_vm_fibo(void)
 
     struct knh_Method_t *mtd = new_Method(NULL, NULL);
     struct label l1;
-#define __N__ 36
+#define __N__ 10
     cb->nset_i(cb, Reg3, 3);
     cb->jilt(cb, &l1, Arg0, Reg3);
     cb->nset_i(cb, Reg1, 1);
@@ -372,6 +371,30 @@ static int test_vm_fibo(void)
     vm_delete(vm);
     return ret == fibo(__N__);
 }
+static knh_string_t __s = {10, "123456789"};
+static int test_vm_nmov_omov(void)
+{
+    knh_data_t ret;
+    vm_t *vm = vm_new();
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder(vm);
+    vm_code_t *pc;
+
+    cb->nset_i(cb, Reg1, 20);
+    cb->oset(cb, Reg2, (knh_Object_t*)&__s);
+    cb->nmov(cb, Reg3, Reg1);
+    cb->omov(cb, Reg4, Reg2);
+    cb->ret(cb,  Reg3);
+    pc = cb->emit_code(cb);
+    vm_exec(vm, pc);
+    ret = vm->r.ret.dval;
+    if (strcmp(((knh_string_t*)vm->r.reg[Reg4].o)->txt, __s.txt) != 0) {
+        return false;
+    }
+    vmcode_builder_delete(cb);
+    vm_delete(vm);
+    return ret == 20;
+}
 
 static struct testcase __TESTCASE__[] = {
     TESTCASE(test_iadd_nset),
@@ -386,6 +409,7 @@ static struct testcase __TESTCASE__[] = {
     TESTCASE(test_vm_cond),
     TESTCASE(test_vm_bcall),
     TESTCASE(test_vm_fibo),
+    TESTCASE(test_vm_nmov_omov),
 };
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))

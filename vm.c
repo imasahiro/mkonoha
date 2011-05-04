@@ -79,7 +79,7 @@ static void dump(knh_value_t *sp)
 static void VM_DBG_P(const char *f, vm_code_t *pc, vm_t *vm, value_t *sp)
 {
 #ifdef DBG_VM
-    fprintf(stderr, "%18s p pc=%p %8d %8d %8d\n", f, pc, pc->a0, pc->a1, pc->a2);
+    fprintf(stderr, "%18s p pc=%p %8lld %8lld %8lld\n", f, pc, pc->a0.ival, pc->a1.ival, pc->a2.ival);
     //fprintf(stderr, "lsp::(%p)", sp);
     //dump(sp);
     //fprintf(stderr, "vsp::(%p)", vm->sp);

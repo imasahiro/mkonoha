@@ -14,7 +14,11 @@
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
 #define FOR_EACH_STATIC(a, x, i) for(i=0, x = a; i < _ARRAY_SIZE(a); x=&a[(++i)])
-#define TODO() asm volatile("int3")
+#define TODO(msg) {\
+    konoha_error("TODO:" msg);\
+    asm volatile("int3");\
+}
+
 
 #define FOR_EACH_TOKEN(stt, x, i) \
     FOR_EACH_ARRAY(((Array(Token)*)stt->data.o), x, i)

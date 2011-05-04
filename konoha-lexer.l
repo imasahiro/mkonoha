@@ -225,11 +225,8 @@ static knh_string_t *buf_tochar(void)
 static void write_buf(char *str)
 {
     knh_string_t *_s = new_string(str);
-    fprintf(stderr, "_s=%s\n", _s->txt);
-    fprintf(stderr, "_buf=%p\n", __buf);
     if (__buf != NULL) {
         __buf = String_concat1(__buf, _s);
-        fprintf(stderr, "_buf=%s\n", __buf->txt);
         delete_(_s);
     } else {
         __buf = _s;

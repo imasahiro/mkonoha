@@ -123,7 +123,20 @@ static void movrl(struct vmcode_builder *cb, Reg_t r1, int idx)
     code->a0.ival = r1;
     code->a1.ival = idx;
     emit(cb->codebuf, code);
-
+}
+static void nmov(struct vmcode_builder *cb, Reg_t r1, Reg_t r2)
+{
+    knh_code_t code = NEW_OP(nmov);
+    code->a0.ival = r1;
+    code->a1.ival = r2;
+    emit(cb->codebuf, code);
+}
+static void omov(struct vmcode_builder *cb, Reg_t r1, Reg_t r2)
+{
+    knh_code_t code = NEW_OP(omov);
+    code->a0.ival = r1;
+    code->a1.ival = r2;
+    emit(cb->codebuf, code);
 }
 static void isub(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3)
 {
@@ -214,6 +227,8 @@ struct vmcode_builder *new_vmcode_builder(vm_t *vm)
     SETf(cb, nset_i);
     SETf(cb, nset_f);
     SETf(cb, nset);
+    SETf(cb, nmov);
+    SETf(cb, omov);
     SETf(cb, iadd);
     SETf(cb, jilt);
     SETf(cb, isub);

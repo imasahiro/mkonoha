@@ -40,6 +40,8 @@ struct vmcode_builder {
     void (*nset_i)(struct vmcode_builder *, Reg_t, knh_data_t);
     void (*nset)(struct vmcode_builder *, Reg_t, knh_value_t);
     void (*oset)(struct vmcode_builder *cb, Reg_t r, struct knh_Object_t *o);
+    void (*nmov)(struct vmcode_builder *, Reg_t, Reg_t);
+    void (*omov)(struct vmcode_builder *, Reg_t, Reg_t);
     void (*iadd)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
     void (*isub)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
     void (*imul)(struct vmcode_builder *, Reg_t, Reg_t, Reg_t);
