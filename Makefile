@@ -8,7 +8,7 @@ objs = \
 FLEX=flex
 BISON=bison
 KONOHA=$(build)/minikonoha
- CFLAGS=-I$(build) -I. -O0 -g3 -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -fno-common
+CFLAGS?=-I$(build) -I. -O0 -g3 -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -fno-common
 #CFLAGS=-I$(build) -I. -O3 -g -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -fno-common -D__N__=36
 LDFLAGS=
 INCLUDES=

@@ -7,7 +7,6 @@ static vm_code_t *emit_code(struct vmcode_builder *cb)
     int i, size = Array_size(cb->codebuf) + 2;
     vm_code_t last_code = {__(op_exit), __(0), __(0), __(0), __(0)};
     knh_code_t x, code = malloc_(sizeof(vm_code_t) * size);
-    fprintf(stderr, "base ptr=%p, %p\n", code, code+1);
     code = code + 1;
     FOR_EACH_ARRAY(cb->codebuf, x, i) {
         vm_code_t *xc = x;

@@ -306,7 +306,7 @@ static void vm_exec(vm_t *vm, vm_code_t *pc_)
 {
     register value_t *r =   vm->r.reg;
     register value_t *arg = vm->r.arg;
-    register value_t *sp;
+    register value_t *sp asm("r14");
     register vm_code_t *pc asm("r15") = pc_;
     static void* THCODE[] = {
         &&L_op_halt,
