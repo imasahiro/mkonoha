@@ -729,4 +729,5 @@ knh_Token_t *build_call_expr(knh_Token_t *func, Array(Token) *args)
 }
 
 #include "stream.c"
+#define DBG_VM
 #include "vm.c"

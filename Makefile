@@ -46,3 +46,9 @@ build/vmtest: ./test/vm_test.c ./vm.c $(KNH_HEADERS) ./vmop.h
 clean:
 	-rm -f $(build)/*.o $(build)/y.gen.{c,h} $(build)/lexer.gen.c $(bin)
 
+.PHONY: test
+test:
+	$(build)/vmtest
+	$(KONOHA) test/add.k
+	$(KONOHA) test/print.k
+	$(KONOHA) test/function.k

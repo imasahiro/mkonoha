@@ -78,7 +78,7 @@ static void dump(knh_value_t *sp)
 }
 static void VM_DBG_P(const char *f, vm_code_t *pc, vm_t *vm, value_t *sp)
 {
-#if 1
+#ifdef DBG_VM
     fprintf(stderr, "%18s p pc=%p %8d %8d %8d\n", f, pc, pc->a0, pc->a1, pc->a2);
     //fprintf(stderr, "lsp::(%p)", sp);
     //dump(sp);
