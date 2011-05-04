@@ -129,7 +129,7 @@ static void VM_DBG_N(const char *f, vm_code_t *pc)
 #define P(idx)     ((r[A(idx).ival]).o)
 #define MTD(idx)   (r[A(idx).ival]).mtd
 #define FUNC(idx)  ((fvm2)(r[A(idx).ival]).o)
-#define FCAST(idx) ((fcast)(r[A(idx).ival]).o)
+#define FCAST(idx) ((fcast_)(r[A(idx).ival]).o)
 #define NC(idx)    (A(idx).ival)
 #define FC(idx)    (A(idx).fval)
 #define OC(idx)    (A(idx).o)

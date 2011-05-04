@@ -23,16 +23,17 @@ static int test_iadd_nset(void)
 {
     knh_data_t ret;
     vm_t *vm = vm_new();
-    vm_code_t *pc, code[] = {
-        {__(op_nset),        __(3), __(9), __(0), __(0)},
-        {__(op_nset),        __(2), __(8), __(0), __(0)},
-        {__(op_iadd),        __(1), __(2), __(3), __(0)},
-        {__(op_ret),         __(1), __(0), __(0), __(0)},
-        {__(op_exit),        __(0), __(0), __(0), __(0)},
-    };
-    pc = vm_code_init(vm, code);
+    vm_code_t *pc;
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder(vm);
+    cb->nset_i(cb, Reg3, 9);
+    cb->nset_i(cb, Reg2, 8);
+    cb->iadd(cb, Reg1, Reg2, Reg3);
+    cb->ret(cb, Reg1);
+    pc = cb->emit_code(cb);
     vm_exec(vm, pc);
     ret = vm->r.ret.dval;
+    vmcode_builder_delete(cb);
     vm_delete(vm);
     return ret == (9+8);
 }
@@ -41,19 +42,18 @@ static int test_fadd_nset(void)
 {
     knh_float_t ret;
     vm_t *vm = vm_new();
-    knh_value_t v1, v2;
-    v1.fval = 10.0;
-    v2.fval = 20.0;
-    vm_code_t *pc, code[] = {
-        {__(op_nset),        __(3), __(v1.dval), __(0), __(0)},
-        {__(op_nset),        __(2), __(v2.dval), __(0), __(0)},
-        {__(op_fadd),        __(1), __(2), __(3), __(0)},
-        {__(op_ret),         __(1), __(0), __(0), __(0)},
-        {__(op_exit),        __(0), __(0), __(0), __(0)},
-    };
-    pc = vm_code_init(vm, code);
+    vm_code_t *pc;
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder(vm);
+    cb->nset_f(cb, Reg3, 10.0);
+    cb->nset_f(cb, Reg2, 20.0);
+    cb->fadd(cb, Reg1, Reg2, Reg3);
+    cb->ret(cb, Reg1);
+    pc = cb->emit_code(cb);
+
     vm_exec(vm, pc);
     ret = vm->r.ret.fval;
+    vmcode_builder_delete(cb);
     vm_delete(vm);
     return ret == (10.0 + 20.0);
 }
@@ -63,15 +63,15 @@ static int test_local_start(void)
     vm_t *vm = vm_new();
     void *sp = vm->sp;
     int  ret;
-    vm_code_t *pc, code1[] = {
-        {__(op_local_start), __(9), __(0), __(0), __(0)},
-        {__(op_local_end),   __(9), __(0), __(0), __(0)},
-        {__(op_ret),         __(0), __(0), __(0), __(0)},
-        {__(op_exit),        __(0), __(0), __(0), __(0)},
-    };
-    pc = vm_code_init(vm, code1);
-    vm_exec(vm, pc);
+    struct vmcode_builder *cb;
+    vm_code_t *pc;
+    cb = new_vmcode_builder(vm);
+    cb->local_start(cb, 9);
+    cb->local_end(cb, 9);
+    cb->ret(cb, Reg0);
+    pc = cb->emit_code(cb);
     ret = (vm->sp == sp);
+    vmcode_builder_delete(cb);
     vm_delete(vm);
     return ret;
 }
@@ -80,49 +80,41 @@ static int test_icast_fcast(void)
 {
     knh_float_t ret;
     vm_t *vm = vm_new();
-
-    knh_value_t v1;
-    v1.fval = 15.0;
-    vm_code_t *pc, code1[] = {
-        {__(op_nset),        __(3), __(v1.dval), __(0), __(0)},
-        {__(op_icast),       __(2), __(3), __(0), __(0)},
-        {__(op_ret),         __(2), __(0), __(0), __(0)},
-        {__(op_exit),        __(0), __(0), __(0), __(0)},
-    };
-    vm_code_t code2[] = {
-        {__(op_nset),        __(3), __(15), __(0), __(0)},
-        {__(op_fcast),       __(2), __(3), __(0), __(0)},
-        {__(op_ret),         __(2), __(0), __(0), __(0)},
-        {__(op_exit),        __(0), __(0), __(0), __(0)},
-    };
-    pc = vm_code_init(vm, code1);
+    vm_code_t *pc;
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder(vm);
+    cb->nset_f(cb, Reg3, 15.0);
+    cb->icast(cb, Reg2, Reg3);
+    cb->nset_i(cb, Reg4, 15);
+    cb->fcast(cb, Reg5, Reg4);
+    cb->ret(cb, Reg2);
+    pc = cb->emit_code(cb);
     vm_exec(vm, pc);
-    if (vm->r.ret.ival != 15) {
+    if (vm->r.reg[Reg5].fval != (knh_float_t)15) {
         return 0;
     }
-    pc = vm_code_init(vm, code2);
-    vm_exec(vm, pc);
-    ret = vm->r.ret.fval;
+    ret = vm->r.ret.ival;
+    vmcode_builder_delete(cb);
     vm_delete(vm);
 
-    return ret == (15.0);
+    return ret == (15);
 }
 
 static int test_int_op(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder(vm);
 #define _code_(n, op, v1, v2, v3, v, rval) \
-    vm_code_t code##n [] = {    \
-        {__(op_nset),        __(2), __(v1), __(0), __(0)}, \
-        {__(op_nset),        __(3), __(v2), __(0), __(0)}, \
-        {__(op_nset),        __(4), __(v3), __(0), __(0)}, \
-        {__(op_i##op),       __(1), __(2), __(3), __(0)},  \
-        {__(op_i##op),       __(1), __(1), __(4), __(0)},  \
-        {__(op_ret),         __(1), __(0), __(0), __(0)},  \
-        {__(op_exit),        __(0), __(0), __(0), __(0)},  \
-    };\
-    pc = vm_code_init(vm, code##n);\
+    cb = vmcode_builder_init(cb);\
+    cb->nset_i(cb, Reg2, v1);\
+    cb->nset_i(cb, Reg3, v2);\
+    cb->nset_i(cb, Reg4, v3);\
+    cb->i##op (cb, Reg1, Reg2, Reg3);\
+    cb->i##op (cb, Reg1, Reg1, Reg4);\
+    cb->ret(cb, Reg1);\
+    pc = cb->emit_code(cb);\
     vm_exec(vm, pc); \
     if (vm->r.ret.rval != (v)) return 0;
 
@@ -139,25 +131,23 @@ static int test_float_op(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;
-    knh_value_t n1, n2, n3;
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder(vm);
 #define _code_(n, op, v1, v2, v3, v, rval) \
-    vm_code_t code##n [] = {    \
-        {__(op_nset),        __(2), __(v1), __(0), __(0)}, \
-        {__(op_nset),        __(3), __(v2), __(0), __(0)}, \
-        {__(op_nset),        __(4), __(v3), __(0), __(0)}, \
-        {__(op_f##op),       __(1), __(2), __(3), __(0)},  \
-        {__(op_f##op),       __(1), __(1), __(4), __(0)},  \
-        {__(op_ret),         __(1), __(0), __(0), __(0)},  \
-        {__(op_exit),        __(0), __(0), __(0), __(0)},  \
-    };\
-    pc = vm_code_init(vm, code##n);\
+    cb = vmcode_builder_init(cb);\
+    cb->nset_f(cb, Reg2, v1);\
+    cb->nset_f(cb, Reg3, v2);\
+    cb->nset_f(cb, Reg4, v3);\
+    cb->f##op (cb, Reg1, Reg2, Reg3);\
+    cb->f##op (cb, Reg1, Reg1, Reg4);\
+    cb->ret(cb, Reg1);\
+    pc = cb->emit_code(cb);\
     vm_exec(vm, pc); \
     if (vm->r.ret.rval != (v)) return 0;
-    n1.fval = 30.0; n2.fval = 40.0; n3.fval = 50.0;
-    _code_(0, add, n1.dval, n2.dval, n3.dval, n1.fval + n2.fval + n3.fval, fval);
-    _code_(1, sub, n1.dval, n2.dval, n3.dval, n1.fval - n2.fval - n3.fval, fval);
-    _code_(2, mul, n1.dval, n2.dval, n3.dval, n1.fval * n2.fval * n3.fval, fval);
-    _code_(3, div, n1.dval, n2.dval, n3.dval, n1.fval / n2.fval / n3.fval, fval);
+    _code_(0, add, 30.0, 40.0, 50.0, 30.0 + 40.0 + 50.0, fval);
+    _code_(1, sub, 30.0, 40.0, 50.0, 30.0 - 40.0 - 50.0, fval);
+    _code_(2, mul, 30.0, 40.0, 50.0, 30.0 * 40.0 * 50.0, fval);
+    _code_(3, div, 30.0, 40.0, 50.0, 30.0 / 40.0 / 50.0, fval);
 #undef _code_
     vm_delete(vm);
     return 1;
@@ -172,15 +162,14 @@ static int test_fcall(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;
-    vm_code_t code [] = {
-        {__(op_nset),        __(2), __(10), __(0), __(0)},
-        {__(op_nset),        __(3), __(20), __(0), __(0)},
-        {__(op_nset),        __(4), __(30), __(0), __(0)},
-        {__(op_fcall),       __(1), __(0), __(fcall_test), __(0)},
-        {__(op_ret),         __(1), __(0), __(0), __(0)},
-        {__(op_exit),        __(0), __(0), __(0), __(0)},
-    };
-    pc = vm_code_init(vm, code);
+    struct vmcode_builder *cb;
+    cb = new_vmcode_builder(vm);
+    cb->nset_i(cb, Reg2, 10);
+    cb->nset_i(cb, Reg3, 20);
+    cb->nset_i(cb, Reg4, 30);
+    cb->fcall(cb,  Reg1, NULL, (void*)fcall_test);
+    cb->ret(cb, Reg1);
+    pc = cb->emit_code(cb);
     vm_exec(vm, pc);
     if (vm->r.ret.ival != 10 + 20 + 30) return 0;
     vm_delete(vm);
@@ -207,20 +196,20 @@ static int test_ncall(void)
 {
     vm_t *vm = vm_new();
     vm_code_t *pc;
+    struct vmcode_builder *cb;
+    knh_value_t v1, v2, v3;
+    cb = new_vmcode_builder(vm);
 #define RARG(n) (VM_REG_SIZE + 1 + n)
 #define _code_(n, op, f, v1, v2, v3, v, rval) \
-    vm_code_t code##n [] = {\
-        {__(op_nset),        __(RARG(0)), __(v1), __(0), __(0)},\
-        {__(op_nset),        __(RARG(1)), __(v2), __(0), __(0)},\
-        {__(op_nset),        __(RARG(2)), __(v3), __(0), __(0)},\
-        {__(op_ncall_##op),  __(1), __(0),  __(f), __(0)},\
-        {__(op_ret),         __(1), __(0),  __(0), __(0)},\
-        {__(op_exit),        __(0), __(0),  __(0), __(0)},\
-    };\
-    pc = vm_code_init(vm, code##n);\
+    cb = vmcode_builder_init(cb);\
+    cb->nset_i(cb, RARG(0), v1);\
+    cb->nset_i(cb, RARG(1), v2);\
+    cb->nset_i(cb, RARG(2), v3);\
+    cb->ncall_##op (cb, Reg1, NULL, (void*)f);\
+    cb->ret(cb, Reg1);\
+    pc = cb->emit_code(cb);\
     vm_exec(vm, pc);\
     if (vm->r.ret.rval != v) return 0;
-    knh_value_t v1, v2, v3;
     v1.fval = 10.0;v2.fval = 20.0;v3.fval = 30.0;
     _code_(0, v, ncall_test_v, 0, 0, 0, 0, dval);
     _code_(1, i, ncall_test_i, 10, 20, 30, 10, ival);
@@ -262,7 +251,7 @@ static int test_vm_cond(void)
     //  else         ret 30;
     struct label l1;
     cb->nset_i(cb, Reg3, 10);
-    cb->jilt(cb, &l1, Arg0, Reg3);
+    cb->Jilt(cb, &l1, Arg0, Reg3);
     cb->nset_i(cb, Reg1, 20);
     cb->ret(cb,  Reg1);
     l1.replaceLabelWith(&l1, cb);
@@ -335,7 +324,7 @@ static int test_vm_fibo(void)
 #define __N__ 3
 #endif
     cb->nset_i(cb, Reg3, 3);
-    cb->jilt(cb, &l1, Arg0, Reg3);
+    cb->Jilt(cb, &l1, Arg0, Reg3);
     cb->nset_i(cb, Reg1, 1);
     cb->ret(cb,  Reg1);
     l1.replaceLabelWith(&l1, cb);
@@ -396,19 +385,20 @@ static int test_vm_nmov_omov(void)
 }
 
 static struct testcase __TESTCASE__[] = {
-    //TESTCASE(test_iadd_nset),
-    //TESTCASE(test_fadd_nset),
-    //TESTCASE(test_local_start),
-    //TESTCASE(test_icast_fcast),
-    //TESTCASE(test_int_op),
-    //TESTCASE(test_float_op),
-    //TESTCASE(test_fcall),
-    //TESTCASE(test_ncall),
     TESTCASE(test_vm_builder),
     TESTCASE(test_vm_cond),
     TESTCASE(test_vm_bcall),
     TESTCASE(test_vm_fibo),
     TESTCASE(test_vm_nmov_omov),
+    TESTCASE(test_iadd_nset),
+    TESTCASE(test_fadd_nset),
+    TESTCASE(test_local_start),
+    TESTCASE(test_icast_fcast),
+    TESTCASE(test_int_op),
+    TESTCASE(test_float_op),
+    TESTCASE(test_fcall),
+    TESTCASE(test_ncall),
+
 };
 
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))

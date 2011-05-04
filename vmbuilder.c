@@ -217,22 +217,6 @@ static void omov(struct vmcode_builder *cb, Reg_t r1, Reg_t r2)
     code->a1.ival = r2;
     emit(cb->codebuf, code);
 }
-static void isub(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3)
-{
-    knh_code_t code = NEW_OP(isub);
-    code->a0.ival = r1;
-    code->a1.ival = r2;
-    code->a2.ival = r3;
-    emit(cb->codebuf, code);
-}
-static void iadd(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3)
-{
-    knh_code_t code = NEW_OP(iadd);
-    code->a0.ival = r1;
-    code->a1.ival = r2;
-    code->a2.ival = r3;
-    emit(cb->codebuf, code);
-}
 static void replaceLabelWith(struct label *l, struct vmcode_builder *cb)
 {
     int i;
@@ -243,9 +227,24 @@ static void replaceLabelWith(struct label *l, struct vmcode_builder *cb)
         }
     }
 }
-static void jilt(struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2)
+static void emit_op2(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, enum opcode op)
 {
-    vm_code_t *code = NEW_OP(Jilt);
+    vm_code_t *code = new_op(op);
+    code->a0.ival = r1;
+    code->a1.ival = r2;
+    emit(cb->codebuf, code);
+}
+static void emit_op3(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3, enum opcode op)
+{
+    vm_code_t *code = new_op(op);
+    code->a0.ival = r1;
+    code->a1.ival = r2;
+    code->a2.ival = r3;
+    emit(cb->codebuf, code);
+}
+static void emit_cond_jmp(struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2, enum opcode op)
+{
+    vm_code_t *code = new_op(op);
     code->a0.ptr = l;
     code->a1.ival = r1;
     code->a2.ival = r2;
@@ -253,44 +252,120 @@ static void jilt(struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2)
     l->index = Array_size(cb->codebuf);
     emit(cb->codebuf, code);
 }
+#define EMIT_OP(__op__) \
+static void __op__ (struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3) {\
+    emit_op3(cb, r1, r2, r3, op_##__op__);\
+}
+#define EMIT_OP2(__op__) \
+static void __op__ (struct vmcode_builder *cb, Reg_t r1, Reg_t r2) {\
+    emit_op2(cb, r1, r2, op_##__op__);\
+}
+#define EMIT_COND_JMP_OP(__op__) \
+static void __op__ (struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2) {\
+    emit_cond_jmp(cb, l, r1, r2, op_##__op__);\
+}
+EMIT_OP(iadd);
+EMIT_OP(isub);
+EMIT_OP(imul);
+EMIT_OP(idiv);
+EMIT_OP(imod);
+EMIT_OP(ieq);
+EMIT_OP(ine);
+EMIT_OP(igt);
+EMIT_OP(ilt);
+EMIT_OP(ige);
+EMIT_OP(ile);
+EMIT_OP(fadd);
+EMIT_OP(fsub);
+EMIT_OP(fmul);
+EMIT_OP(fdiv);
+EMIT_OP(feq);
+EMIT_OP(fne);
+EMIT_OP(fgt);
+EMIT_OP(flt);
+EMIT_OP(fge);
+EMIT_OP(fle);
+
+EMIT_OP2(fpow);
+EMIT_OP2(fcast);
+EMIT_OP2(ipow);
+EMIT_OP2(icast);
+
+EMIT_COND_JMP_OP(Jieq);
+EMIT_COND_JMP_OP(Jine);
+EMIT_COND_JMP_OP(Jigt);
+EMIT_COND_JMP_OP(Jilt);
+EMIT_COND_JMP_OP(Jige);
+EMIT_COND_JMP_OP(Jile);
+
+EMIT_COND_JMP_OP(Jfeq);
+EMIT_COND_JMP_OP(Jfne);
+EMIT_COND_JMP_OP(Jfgt);
+EMIT_COND_JMP_OP(Jflt);
+EMIT_COND_JMP_OP(Jfge);
+EMIT_COND_JMP_OP(Jfle);
+
+static void emit_op_in(struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3, enum opcode op)
+{
+    vm_code_t *code = new_op(op);
+    code->a0.ival = r1;
+    code->a1.ival = r2;
+    code->a2.ival = r3;
+    emit(cb->codebuf, code);
+}
+static void emit_op_in_jmp(struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2, Reg_t r3, enum opcode op)
+{
+    vm_code_t *code = new_op(op);
+    code->a0.ptr  = (void*)l;
+    code->a1.ival = r1;
+    code->a2.ival = r2;
+    code->a3.ival = r3;
+    emit(cb->codebuf, code);
+}
+#define EMIT_OP_IN(__op__) \
+static void __op__ (struct vmcode_builder *cb, Reg_t r1, Reg_t r2, Reg_t r3) {\
+    emit_op_in(cb, r1, r2, r3, op_##__op__);\
+}
+#define EMIT_OP_IN_JMP(__op__) \
+static void __op__ (struct vmcode_builder *cb, struct label *l, Reg_t r1, Reg_t r2, Reg_t r3) {\
+    emit_op_in_jmp(cb, l, r1, r2, r3, op_##__op__);\
+}
+EMIT_OP_IN(iin);
+EMIT_OP_IN(inoin);
+EMIT_OP_IN(fin);
+EMIT_OP_IN(fnoin);
+EMIT_OP_IN_JMP(Jiin);
+EMIT_OP_IN_JMP(Jinoin);
+EMIT_OP_IN_JMP(Jfin);
+EMIT_OP_IN_JMP(Jfnoin);
+
 static void ret(struct vmcode_builder *cb, Reg_t r)
 {
     vm_code_t *code = NEW_OP(ret);
     code->a0.ival = r;
     emit(cb->codebuf, code);
 }
-static void bcall(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
+#define EMIT_OP_CALL(__op__) \
+static void __op__ (struct vmcode_builder *cb, Reg_t r1, struct knh_Method_t *mtd, void *ptr) {\
+    emit_op_call(cb, r1, mtd, ptr, op_##__op__);\
+}
+static void emit_op_call(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr, enum opcode op)
 {
-    vm_code_t *code = NEW_OP(bcall);
+    vm_code_t *code = new_op(op);
     code->a0.ival = r;
     code->a1.mtd  = (mtd);
     code->a2.ptr  = ptr;
     emit(cb->codebuf, code);
 }
-static void call(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
-{
-    vm_code_t *code = NEW_OP(call);
-    code->a0.ival = r;
-    code->a1.mtd  = (mtd);
-    code->a2.ptr  = ptr;
-    emit(cb->codebuf, code);
-}
-static void scall(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
-{
-    vm_code_t *code = NEW_OP(scall);
-    code->a0.ival = r;
-    code->a1.mtd  = (mtd);
-    code->a2.ptr  = ptr;
-    emit(cb->codebuf, code);
-}
-static void fcall(struct vmcode_builder *cb, Reg_t r, struct knh_Method_t *mtd, void *ptr)
-{
-    vm_code_t *code = NEW_OP(fcall);
-    code->a0.ival = r;
-    code->a1.mtd  = (mtd);
-    code->a2.ptr  = ptr;
-    emit(cb->codebuf, code);
-}
+EMIT_OP_CALL(scall);
+EMIT_OP_CALL(call);
+EMIT_OP_CALL(bcall);
+EMIT_OP_CALL(fcall);
+EMIT_OP_CALL(ncall_v);
+EMIT_OP_CALL(ncall_i);
+EMIT_OP_CALL(ncall_f);
+EMIT_OP_CALL(ncall_p);
+
 #define SETf(cb, op) cb->op = op
 typedef struct vmcode_builder vmcode_builder;
 struct vmcode_builder *new_vmcode_builder(vm_t *vm)
@@ -309,12 +384,60 @@ struct vmcode_builder *new_vmcode_builder(vm_t *vm)
     SETf(cb, nmov);
     SETf(cb, omov);
     SETf(cb, iadd);
-    SETf(cb, jilt);
     SETf(cb, isub);
+    SETf(cb, iadd);
+    SETf(cb, isub);
+    SETf(cb, imul);
+    SETf(cb, idiv);
+    SETf(cb, imod);
+    SETf(cb, ipow);
+    SETf(cb, icast);
+    SETf(cb, ieq);
+    SETf(cb, ine);
+    SETf(cb, igt);
+    SETf(cb, ilt);
+    SETf(cb, ige);
+    SETf(cb, ile);
+    SETf(cb, iin);
+    SETf(cb, inoin);
+    SETf(cb, Jieq);
+    SETf(cb, Jine);
+    SETf(cb, Jigt);
+    SETf(cb, Jilt);
+    SETf(cb, Jige);
+    SETf(cb, Jile);
+    SETf(cb, Jiin);
+    SETf(cb, Jinoin);
+    SETf(cb, fadd);
+    SETf(cb, fsub);
+    SETf(cb, fmul);
+    SETf(cb, fdiv);
+    SETf(cb, fpow);
+    SETf(cb, fcast);
+    SETf(cb, feq);
+    SETf(cb, fne);
+    SETf(cb, fgt);
+    SETf(cb, flt);
+    SETf(cb, fge);
+    SETf(cb, fle);
+    SETf(cb, fin);
+    SETf(cb, fnoin);
+    SETf(cb, Jfeq);
+    SETf(cb, Jfne);
+    SETf(cb, Jfgt);
+    SETf(cb, Jflt);
+    SETf(cb, Jfge);
+    SETf(cb, Jfle);
+    SETf(cb, Jfin);
+    SETf(cb, Jfnoin);
     SETf(cb, ret);
     SETf(cb, bcall);
     SETf(cb, scall);
     SETf(cb, fcall);
+    SETf(cb, ncall_v);
+    SETf(cb, ncall_i);
+    SETf(cb, ncall_f);
+    SETf(cb, ncall_p);
     SETf(cb, call);
     SETf(cb, oset);
     cb->codebuf = Array_new(code);
