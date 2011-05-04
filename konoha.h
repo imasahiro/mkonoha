@@ -38,6 +38,7 @@ void knh_dump(CTX ctx, knh_Object_t *o);
 #include "array.h"
 #include "tuple.h"
 #include "token.h"
+#include "kstring.h"
 
 typedef enum operator_code KOperator;
 

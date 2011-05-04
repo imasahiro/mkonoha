@@ -2,7 +2,7 @@
 #include "memory.h"
 #include "stream.h"
 #include "vm.h"
-#include "string.c"
+#include "kstring.c"
 #ifndef TEST
 #define KONOHA
 #endif
@@ -115,13 +115,18 @@ static inline void *__copy(void *v, size_t size)
     return p;
 }
 
-static inline knh_string_t *new_string(const char *txt)
+static inline knh_string_t *new_string_(const char *txt)
 {
     int len = strlen(txt) + 1;
     knh_string_t *s = malloc_(sizeof(knh_string_t) + len);
     s->len = len;
     memcpy(s->txt, txt, len);
     return s;
+}
+
+knh_string_t *new_string(const char *txt)
+{
+    return new_string_(txt);
 }
 
 void dbg_p(const char *file, const char *func, int line, const char *fmt, ...)
@@ -178,7 +183,7 @@ knh_Token_t *konoha_build_id(const char *name)
     knh_Token_t *t = new_(Token);
     t->code = IDENTIFIER_NODE;
     t->type = TYPE_UNTYPED;
-    t->data.str = new_string(convert_alias(name));
+    t->data.str = new_string_(convert_alias(name));
     return t;
 }
 knh_Token_t *konoha_build_int(int val)
@@ -203,7 +208,7 @@ knh_Token_t *konoha_build_string(knh_string_t *val)
     t->code = STRING_CONST;
     t->type = TYPE_String;
     t->data.str = val;
-    return NULL;
+    return t;
 }
 
 #define token_check(t, op, v) (assert(token_##op(t, v)))
@@ -434,236 +439,7 @@ int konoha_error (const char *msg)
   exit(1);
 }
 
-#define T_DUMP(t) \
-    fprintf(stderr, "%s:%d:", __FILE__, __LINE__);\
-    type_is(O(t), TYPE_Token);\
-    knh_dump(ctx, O(t))
-
-static void asm_expr(Ctx *ctx, knh_Token_t *x);
-static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
-{
-    int i;
-    knh_Token_t *x;
-    FOR_EACH_TOKEN(stmt, x, i) {
-        asm_expr(ctx, x);
-    }
-}
-
-#define CB (ctx->cb)
-static void append_to_current_decls_tpl(Tuple(Token, Token) *tpl, int level)
-{
-    Array(Tuple) *a = g_ctx->blkdecls[level];
-    if (!a) {
-        a = Array_new(Tuple);
-        g_ctx->blkdecls[level] = a;
-    }
-    Array_add(Tuple, a, cast(knh_Tuple_t*,tpl));
-}
-static void append_to_current_decls(knh_Token_t *name, knh_Token_t *val, int level)
-{
-    Tuple(Token, Token) *tpl = Tuple_new_init(Token, Token, name, val);
-    append_to_current_decls_tpl(tpl, level);
-}
-static Array(Tuple) *get_current_level(int level)
-{
-    Array(Tuple) *a = g_ctx->blkdecls[level];
-    if (!a) {
-        a = Array_new(Tuple);
-        g_ctx->blkdecls[level] = a;
-    }
-    return a;
-}
-
-struct asmdata;
-typedef void (*fasm_p)(Ctx *, struct asmdata *, knh_Token_t *);
-struct asmdata {
-    union {
-        Reg_t r;
-        knh_value_t v;
-    } v1, v2;
-    fasm_p asm_p;
-};
-
-static void asm_variable_name(Ctx *ctx, Reg_t r, knh_string_t *name, struct asmdata *dat)
-{
-    Array(Tuple) *a = get_current_level(ctx->blklevel);
-    knh_Tuple_t *x;
-    Tuple(Token, Token) *tpl;
-    int i;
-    FOR_EACH_ARRAY(a, x, i) {
-        tpl = cast(Tuple(Token, Token)*, x);
-        if (string_cmp(tpl->o1->data.str, name) == 0) {
-            dat->asm_p(ctx, dat, tpl->o1);
-            if (tpl->o1->type == TYPE_String) {
-                CB->oset(CB, r, tpl->o2->data.o);
-            } else if (tpl->o1->type == TYPE_Integer) {
-                CB->nset_i(CB, r, tpl->o2->data.dval);
-            } else if (tpl->o1->type == TYPE_Float) {
-                CB->nset_f(CB, r, tpl->o2->data.fval);
-            } else {
-                TODO();
-            }
-        }
-    }
-}
-
-static knh_string_t __equal = {1, "="};
-static knh_string_t __camma = {2, ", "};
-static void asm_print_var_before(Ctx *ctx, struct asmdata *dat, knh_Token_t *x)
-{
-    CB->nset_i(CB, dat->v1.r, (x->type!=TYPE_UNTYPED)?x->type:TYPE_Integer);
-}
-static void asm_call_print(Ctx *ctx, Array(Token) *a)
-{
-    int i;
-    knh_Token_t *x;
-    FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
-        CB->oset(CB, Arg0, O(ctx->out));
-        if (i != 1) {
-            CB->nset_i(CB, Arg1, TYPE_String);
-            CB->oset(CB, Arg2, O(&__camma));
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
-        }
-        if (Token_CODE(x) == IDENTIFIER_NODE) {
-            struct asmdata dat = {};
-            knh_string_t *name = x->data.str;
-            CB->nset_i(CB, Arg1, TYPE_String);
-            CB->oset(CB, Arg2, O(String_concat1(name, &__equal)));
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
-            dat.v1.r = Arg1;
-            dat.asm_p = asm_print_var_before;
-            asm_variable_name(ctx, Arg2, name, &dat);
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
-        }
-    }
-}
-
-static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
-{
-    int i;
-    Array(Token) *a = cast(Array(Token)*, stmt->data.o);
-    knh_Token_t *x, *func;
-    T_DUMP(stmt);
-    func = Array_n(a, 0);
-    if (string_cmp_char(func->data.str, "print", 5) == 0) {
-        asm_call_print(ctx, a);
-    } else {
-        FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
-            if (Token_CODE(x) == IDENTIFIER_NODE) {
-                knh_string_t *name = x->data.str;
-                //asm volatile("int3");
-            } else if (Token_isConst(x)) {
-                asm volatile("int3");
-            }
-        }
-    }
-}
-
-static void asm_op2(Ctx *ctx, knh_Token_t *x);
-static void asm_decl_tpl(Ctx *ctx, Tuple(Token, Token) *tpl)
-{
-    if (Token_isConst(tpl->o2)) {
-        knh_value_t v;
-        if (IS_ConstInt(tpl->o2)) {
-            v.ival = tpl->o2->data.ival;
-            CB->nset_i(CB, Reg1, v.dval);
-        } else if (IS_ConstFloat(tpl->o2)) {
-            v.fval = tpl->o2->data.fval;
-            CB->nset_f(CB, Reg1, v.fval);
-        } else {
-            TODO();
-        }
-        tpl->o1->type = tpl->o2->type;
-    } else {
-        knh_Token_t *x0 = tpl->o1;
-        knh_Token_t *x1 = tpl->o2;
-        enum operator_code code = Token_CODE(x1);
-        if (OpUndef < code && code < OPERATOR_CODE_MAX) {
-            asm_op2(ctx, x1);
-        } else {
-            TODO();
-        }
-        fprintf(stderr, "%p %p\n", x0, x1);
-    }
-    append_to_current_decls_tpl(tpl, ctx->blklevel);
-}
-
-static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
-{
-    Tuple(Token, Token) *tpl;
-    T_DUMP(stmt);
-    tpl = cast(Tuple(Token, Token)*, stmt->data.o);
-    asm_decl_tpl(ctx, tpl);
-}
-static Reg_t asm_0(Ctx *ctx, knh_Token_t *tk)
-{
-    return Reg0;
-}
-static void asm_op2(Ctx *ctx, knh_Token_t *x)
-{
-    Array(Token) *tk = cast(Array(Token)*, x->data.o);
-    Tuple(Token, Token) *tpl;
-    knh_Token_t *x0, *x1;
-    x0 = Array_n(tk, 0);
-    x1 = Array_n(tk, 1);
-#define OPCASE(op) case Op##op:
-    switch (Token_CODE(x)) {
-        OPCASE(EQLET) {
-            tpl = Tuple_new_init(Token, Token, x0, x1);
-            asm_decl_tpl(ctx, tpl);
-            break;
-        }
-        OPCASE(Plus) {
-            Reg_t r0 = asm_0(ctx, x0);
-            Reg_t r1 = asm_0(ctx, x1);
-            if (x0->type == TYPE_Integer && x1->type == TYPE_Integer) {
-                Reg_t rtmp = Reg4;
-                CB->iadd(CB, rtmp, r0, r1);
-            }
-            break;
-        }
-        default:
-            asm volatile("int3");
-            break;
-    }
-}
-
-static void asm_expr(Ctx *ctx, knh_Token_t *x)
-{
-    enum token_code code = Token_CODE(x);
-    switch(code) {
-        case STMT_LIST:
-            asm_stmt_list(ctx, x);
-            break;
-        case CALL_EXPR:
-            asm_call_expr(ctx, x);
-            break;
-        case VAR_DECL:
-            asm_decl(ctx, x);
-            break;
-        default:
-            if (OpUndef < code && code < OPERATOR_CODE_MAX) {
-                asm_op2(ctx, x);
-                break;
-            }
-            asm volatile("int3");
-            konoha_error("???");
-    }
-}
-
-void write_global_script(knh_Token_t *stmt)
-{
-    int i = 0;
-    knh_Token_t *x;
-    Ctx *ctx = g_ctx;
-    struct vmcode_builder *cb = new_vmcode_builder(ctx->vm);
-    ctx->cb = cb;
-    token_check(stmt, code_is, STMT_LIST);
-    FOR_EACH_TOKEN(stmt, x, i) {
-        fprintf(stderr, "i=%d x=%p\n", i, x);
-        asm_expr(ctx, x);
-    }
-}
+#include "asm.c"
 
 static knh_class_t build_function_type(knh_Token_t *rtype, Array(Token) *param);
 

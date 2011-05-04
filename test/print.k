@@ -1,3 +1,10 @@
 int i0 = 10;
 int i1 = 20;
 print i0, i1;
+print i0, 100;
+print 1000, i1;
+print 200, 300;
+print 10.0, 20;
+print 10.0, 20.0;
+print 10, 20.0;
+print "abcd";

@@ -35,7 +35,7 @@ build/konoha-paser.o : ./konoha-paser.y $(KNH_HEADERS)
 	$(BISON) -p konoha_ --defines=build/y.gen.h --output=build/y.gen.c $<
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -c -o $@ build/y.gen.c
 
-build/konoha.o : ./konoha.c $(KNH_HEADERS) ./ctx.c ./stream.c ./vm.c ./string.c
+build/konoha.o : ./konoha.c $(KNH_HEADERS) ./ctx.c ./stream.c ./vm.c ./kstring.c ./asm.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -c -o $@ $<
 
 build/vmtest: ./test/vm_test.c ./vm.c $(KNH_HEADERS) ./vmop.h

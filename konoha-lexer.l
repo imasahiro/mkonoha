@@ -4,6 +4,7 @@
 #define YYDEBUG 1
 #endif
 #include "konoha.h"
+#include "memory.h"
 #include "y.gen.h"
 
 int konoha_wrap (void);
@@ -14,7 +15,7 @@ int konoha_error (const char *);
 #endif
 extern YY_DECL;
 static void write_buf(char *str);
-static char *buf_tochar(void);
+static knh_string_t *buf_tochar(void);
 //static void konoha_unput (int, register char *);
 //static int input (void);
 
@@ -213,16 +214,26 @@ static char *buf_tochar(void);
 }
 %%
 /*print as a keyword*/ 
+static knh_string_t *__buf = NULL;
 static void write_buf(char*);
-static char *buf_tochar(void)
+static knh_string_t *buf_tochar(void)
 {
-  //int len;
-  //char *str;
-  //return str;
-  return NULL;
+    knh_string_t *s = __buf;
+    __buf = NULL;
+    return s;
 }
 static void write_buf(char *str)
 {
+    knh_string_t *_s = new_string(str);
+    fprintf(stderr, "_s=%s\n", _s->txt);
+    fprintf(stderr, "_buf=%p\n", __buf);
+    if (__buf != NULL) {
+        __buf = String_concat1(__buf, _s);
+        fprintf(stderr, "_buf=%s\n", __buf->txt);
+        delete_(_s);
+    } else {
+        __buf = _s;
+    }
 }
 
 int konoha_wrap (void)
