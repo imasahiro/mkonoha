@@ -43,10 +43,9 @@ static void exit_with_msg(const char *msg)
     exit(EXIT_FAILURE);
 }
 
-struct knh_Method_t *new_Method(fvm2 func, vm_code_t *pc);
 static inline void *__new(size_t size, knh_class_t cid);
 
-struct knh_Method_t *new_Method(fvm2 func, vm_code_t *pc)
+knh_Method_t *new_Method(fvm2 func, vm_code_t *pc)
 {
     struct knh_Method_t *mtd = new_(Method);
     mtd->call = func;

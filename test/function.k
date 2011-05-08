@@ -1,5 +1,4 @@
 int f(Int x) {
-    int v = 10 + x;
-    return v;
+    return x + 20;
 }
 print f(30);

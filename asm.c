@@ -4,6 +4,7 @@
     knh_dump(ctx, O(t))
 
 static void asm_expr(Ctx *ctx, knh_Token_t *x);
+static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt);
 static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x);
 static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int level);
 static void register_update(Ctx *ctx, Reg_t reg, knh_Token_t *x);
@@ -139,6 +140,9 @@ static void asm_call_print(Ctx *ctx, Array(Token) *a)
             CB->nset_i(CB, Arg1, TYPE_String);
             CB->oset(CB, Arg2, O(x->data.str));
             CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
+        }
+        else if (Token_CODE(x) == CALL_EXPR) {
+            asm_call_expr(ctx, x);
         } else {
 #define TokenType_IsNumber(x) (Token_type(x) == TYPE_Integer || Token_type(x) == TYPE_Float)
             Reg_t r = asm_op2(ctx, x);
@@ -174,8 +178,13 @@ static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
         FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
             if (Token_CODE(x) == IDENTIFIER_NODE) {
                 asm volatile("int3");
+                TODO("call arg id");
             } else if (Token_isConst(x)) {
                 asm volatile("int3");
+                TODO("call arg const");
+            } else  {
+                asm volatile("int3");
+                TODO("call arg expr");
             }
         }
     }
@@ -407,6 +416,29 @@ static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x)
     return Reg0;
 }
 
+static void function_decl(Ctx *ctx, knh_Token_t *x0)
+{
+    int i;
+    Array(Token) *a;
+    knh_Token_t *x;
+    //T_DUMP(x0);
+    a = cast(Array(Token)*, x0->data.o);
+    knh_dump(ctx, O(Array_n(a, 0)));
+    FOR_EACH_ARRAY_INIT(a, x, i, i=2) {
+        knh_dump(ctx, O(x));
+    }
+    asm_expr(ctx, Array_n(a, 1));
+    asm volatile("int3");
+}
+static void asm_return_expr(Ctx *ctx, knh_Token_t *x)
+{
+    knh_Token_t *x0 = cast(knh_Token_t*, t->data.o);
+    Reg_t r = Arg0;
+    if (x0) {
+        r = asm_0(ctx, x);
+    }
+    CB->ret(CB, r);
+}
 static void asm_expr(Ctx *ctx, knh_Token_t *x)
 {
     enum token_code code = Token_CODE(x);
@@ -419,6 +451,12 @@ static void asm_expr(Ctx *ctx, knh_Token_t *x)
             break;
         case VAR_DECL:
             asm_decl(ctx, x);
+            break;
+        case FUNCTION_DECL:
+            function_decl(ctx, x);
+            break;
+        case RETURN_NODE:
+            asm_return_expr(ctx, x);
             break;
         default:
             if (OpUndef < code && code < OPERATOR_CODE_MAX) {
