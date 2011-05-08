@@ -19,6 +19,12 @@ static Reg_t regalloc(struct vmcode_builder *cb, intptr_t level)
     Array_add(Reg, cb->regs, r);
     return r;
 }
+static void regdealloc(struct vmcode_builder *cb, Reg_t r)
+{
+    if (Array_size(cb->regs) >= 0 && Array_size(cb->regs) <= r) {
+        Array_n(cb->regs, r) = -1;
+    }
+}
 static vm_code_t *emit_code(struct vmcode_builder *cb)
 {
     int i, size = Array_size(cb->codebuf) + 2;

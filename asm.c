@@ -6,6 +6,7 @@
 static void asm_expr(Ctx *ctx, knh_Token_t *x);
 static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x);
 static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int level);
+static void register_update(Ctx *ctx, Reg_t reg, knh_Token_t *x);
 static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
 {
     int i;
@@ -84,8 +85,8 @@ static void asm_variable_name(Ctx *ctx, Reg_t r, knh_string_t *name, struct asmd
             } else {
                 if (Token_CODE(tpl->o1) == IDENTIFIER_NODE) {
                     knh_Token_t *o1 = get_variable(ctx, tpl->o1);
-                    TODO();
-                    fprintf(stderr, "%p\n", o1);
+                    Reg_t r0 = register_alloc(CB, tpl->o2, ctx->blklevel);
+                    CB->nmov(CB, r, r0);
                 }
                 fprintf(stderr, "%p\n", tpl);
             }
@@ -106,36 +107,38 @@ static void asm_call_print(Ctx *ctx, Array(Token) *a)
     knh_Token_t *x;
     FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
         CB->oset(CB, Arg0, O(ctx->out));
+#define RET_REG Arg7
         if (i != 1) {
             CB->nset_i(CB, Arg1, TYPE_String);
             CB->oset(CB, Arg2, O(&__camma));
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            /* TODO fcal without retval*/
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         }
         if (Token_CODE(x) == IDENTIFIER_NODE) {
             struct asmdata dat = {};
             knh_string_t *name = x->data.str;
             CB->nset_i(CB, Arg1, TYPE_String);
             CB->oset(CB, Arg2, O(String_concat1(name, &__equal)));
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
             dat.v1.r = Arg1;
             dat.asm_p = asm_print_var_before;
             asm_variable_name(ctx, Arg2, name, &dat);
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         }
         else if (Token_CODE(x) == INTEGER_CONST) {
             CB->nset_i(CB, Arg1, TYPE_Integer);
             CB->nset_i(CB, Arg2, x->data.ival);
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         }
         else if (Token_CODE(x) == FLOAT_CONST) {
             CB->nset_i(CB, Arg1, TYPE_Float);
             CB->nset_f(CB, Arg2, x->data.fval);
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         }
         else if (Token_CODE(x) == STRING_CONST) {
             CB->nset_i(CB, Arg1, TYPE_String);
             CB->oset(CB, Arg2, O(x->data.str));
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         } else {
 #define TokenType_IsNumber(x) (Token_type(x) == TYPE_Integer || Token_type(x) == TYPE_Float)
             Reg_t r = asm_op2(ctx, x);
@@ -145,12 +148,12 @@ static void asm_call_print(Ctx *ctx, Array(Token) *a)
             } else {
                 CB->omov(CB, Arg2, r);
             }
-            CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         }
     }
     CB->nset_i(CB, Arg1, TYPE_String);
     CB->oset(CB, Arg2, O(&__n));
-    CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
+    CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
 }
 static knh_Method_t *findFunc_fromName(Ctx *ctx, knh_string_t *name)
 {
@@ -182,13 +185,13 @@ static void asm_decl_tpl(Ctx *ctx, Tuple(Token, Token) *tpl)
 {
     if (Token_isConst(tpl->o2)) {
         knh_value_t v;
-        Reg_t r = register_alloc(CB, tpl->o1, 0);
+        Reg_t r0 = register_alloc(CB, tpl->o1, 0);
         if (IS_ConstInt(tpl->o2)) {
             v.ival = tpl->o2->data.ival;
-            CB->nset_i(CB, Reg1, v.dval);
+            CB->nset_i(CB, r0, v.dval);
         } else if (IS_ConstFloat(tpl->o2)) {
             v.fval = tpl->o2->data.fval;
-            CB->nset_f(CB, Reg1, v.fval);
+            CB->nset_f(CB, r0, v.fval);
         } else {
             TODO();
         }
@@ -198,7 +201,7 @@ static void asm_decl_tpl(Ctx *ctx, Tuple(Token, Token) *tpl)
         knh_Token_t *x1 = tpl->o2;
         enum operator_code code = Token_CODE(x1);
         if (OpUndef < code && code < OPERATOR_CODE_MAX) {
-            Reg_t r = asm_op2(ctx, x1);
+            asm_op2(ctx, x1);
         } else {
             TODO();
         }
@@ -237,6 +240,13 @@ static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int leve
         if (v->o1 == x0) {
             return v->o2;
         }
+        if (type_is(O(v->o1), TYPE_Token)) {
+            if (Token_CODE(v->o1) == IDENTIFIER_NODE && Token_CODE(x0) == IDENTIFIER_NODE) {
+                if (string_cmp(v->o1->data.str, x0->data.str) == 0) {
+                    return v->o2;
+                }
+            }
+        }
     }
     {
         Reg_t r = cb->regalloc(cb, level);
@@ -244,6 +254,25 @@ static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int leve
         Array_add(Tuple, regtable, x);
         return r;
     }
+}
+static void register_update(Ctx *ctx, Reg_t reg, knh_Token_t *x0)
+{
+    Array(Tuple) *regtable = global_regtable();
+    knh_Tuple_t *x;Tuple(Token, Reg) *v;
+    int i;
+    FOR_EACH_ARRAY(regtable, x, i) {
+        v = cast(Tuple(Token, Reg)*, x);
+        if (v->o1 == x0) {
+            TODO("???");
+            asm volatile("int3");
+        }
+        if (v->o2 == reg) {
+            asm volatile("int3");
+            TODO("same register????");
+        }
+    }
+    x = cast(knh_Tuple_t*, Tuple_new_init(Token, Reg, x0, reg));
+    Array_add(Tuple, regtable, x);
 }
 
 static Reg_t asm_0(Ctx *ctx, knh_Token_t *x0)
@@ -253,6 +282,7 @@ static Reg_t asm_0(Ctx *ctx, knh_Token_t *x0)
         CB->nset_i(CB, r, x0->data.ival);
     }
     else if (Token_CODE(x0) == IDENTIFIER_NODE) {
+        fprintf(stderr, "reg=%d, x0=%p\n", r, x0);
         //update_variable(ctx, x0, r);
     }
     return r;
@@ -354,7 +384,9 @@ static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x)
                 if (x1->type == TYPE_Integer) {
                     x0->type = TYPE_Integer;
                     x->type  = TYPE_Integer;
-                    return asm_op2_int_expr(ctx, code, r0, r1);
+                    Reg_t reg = asm_op2_int_expr(ctx, code, r0, r1);
+                    register_update(ctx, reg, x);
+                    return reg;
                 }
                 else if (x1->type == TYPE_Integer) {
                     TODO("Float typing");
