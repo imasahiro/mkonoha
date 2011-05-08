@@ -13,6 +13,7 @@ static void stream_init(void);
 
 struct knh_OutputStream_t;
 struct knh_OutputStream_t *new_OutputStream(struct knh_string_t *name, struct knh_string_t *mode);
+struct knh_OutputStream_t *new_OutputStreamSTDIO(knh_string_t *name, knh_string_t *mode);
 void OutputStream_delete(struct knh_OutputStream_t *os);
 void OutputStream_print(struct knh_OutputStream_t *os, knh_class_t cid, knh_value_t v);
 void OutputStream_println(struct knh_OutputStream_t *os, knh_class_t cid, knh_value_t v);

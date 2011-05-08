@@ -175,8 +175,42 @@ static struct io *FILE_open_ (const char *name, const char *mode, int bufsize)
 static struct iodrv FILE_iodrv = {
     FILE_BUF_SIZE, FILE_read_, FILE_write_, FILE_close_, FILE_sync_, FILE_open_
 };
+
+static void STDSTREAM_close_(struct io *io)
+{
+    FILE *fp = FILE_(io);
+    FILE_sync_(io);
+    fclose(fp);
+    delete_(io);
+}
+
+static struct io *STDSTREAM_open_ (const char *name, const char *mode, int bufsize)
+{
+    struct io *io = (struct io *) malloc_(sizeof(struct io));
+    IODRV_SET(io, FILE_read_, FILE_write_, STDSTREAM_close_, FILE_sync_);
+    iobuf_init(&io->buf, 0);
+    if (strncmp(name, "stdin", 6) == 0) {
+        io->is_r = 1;io->is_w = 0;
+        io->data_ = (void*)stdin;
+    }
+    if (strncmp(name, "stdout", 7) == 0) {
+        io->is_r = 0;io->is_w = 1;
+        io->data_ = (void*)stdout;
+    }
+    if (strncmp(name, "stderr", 7) == 0) {
+        io->is_r = 0;io->is_w = 1;
+        io->data_ = (void*)stderr;
+    }
+    return io;
+}
+
+
+static struct iodrv STDSTREAM_iodrv = {
+    FILE_BUF_SIZE, FILE_read_, FILE_write_, STDSTREAM_close_, FILE_sync_,STDSTREAM_open_ 
+};
+
 enum iotype {
-    FILE_IO
+    FILE_IO, STDIO_IO
 };
 
 static void iodrv_add(const char *name, struct iodrv *drv)
@@ -202,6 +236,13 @@ knh_OutputStream_t *new_OutputStream(knh_string_t *name, knh_string_t *mode)
     os->io = new_io(name->txt, md, FILE_IO);
     return os;
 }
+knh_OutputStream_t *new_OutputStreamSTDIO(knh_string_t *name, knh_string_t *mode)
+{
+    knh_OutputStream_t *os = new_(OutputStream);
+    os->io = new_io(name->txt, NULL, STDIO_IO);
+    return os;
+}
+
 void OutputStream_delete(knh_OutputStream_t *os)
 {
     os->io->sync_(os->io);
@@ -294,4 +335,5 @@ static void stream_init(void)
 {
     g_iodrv = Array_new(iodrv);
     iodrv_add("file", &FILE_iodrv);
+    iodrv_add("stdio", &STDSTREAM_iodrv);
 }

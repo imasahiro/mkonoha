@@ -52,4 +52,3 @@ test:
 	$(build)/vmtest
 	$(KONOHA) test/add.k
 	$(KONOHA) test/print.k
-	$(KONOHA) test/function.k

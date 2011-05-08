@@ -189,14 +189,13 @@ static void construct_default_value(CTX ctx)
         ((struct context *)ctx)->alias_size = alias_size;
     }
 }
-static knh_string_t _stdout = {11, "/dev/stdout"};
-static knh_string_t _stderr = {11, "/dev/stderr"};
-static knh_string_t _wmode = {1, "w"};
+static knh_string_t _stdout = {7, "stdout"};
+static knh_string_t _stderr = {7, "stderr"};
 static void context_init_stream(struct context *ctx)
 {
-    ((struct context *)ctx)->out = new_OutputStream(&_stdout, &_wmode);
-    ((struct context *)ctx)->err = new_OutputStream(&_stderr, &_wmode);
-    ((struct context *)ctx)->_in  = new_io("/dev/stdin",  "r", 0);
+    ((struct context *)ctx)->out = new_OutputStreamSTDIO(&_stdout, NULL);
+    ((struct context *)ctx)->err = new_OutputStreamSTDIO(&_stderr, NULL);
+    ((struct context *)ctx)->_in  = new_io("stdin",  "r", 1/*STDIO_IO*/);
     ((struct context *)ctx)->_out = IOStream_getIO(STREAM(ctx->out));
     ((struct context *)ctx)->_err = IOStream_getIO(STREAM(ctx->err));
 }
