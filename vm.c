@@ -83,8 +83,8 @@ static void VM_DBG_P(const char *f, vm_code_t *pc, vm_t *vm, value_t *sp)
 {
 #ifdef DBG_VM
     fprintf(stderr, "%18s pc=%p addr=%p, %8lld %8lld %8lld\n", f, pc, pc->c.addr, pc->a0.ival, pc->a1.ival, pc->a2.ival);
-    fprintf(stderr, "next=%p, %p\n", pc+1, (pc+1)->c.addr);
-    asm volatile("int3");
+    //fprintf(stderr, "next=%p, %p\n", pc+1, (pc+1)->c.addr);
+    //asm volatile("int3");
     //fprintf(stderr, "lsp::(%p)", sp);
     //dump(sp);
     //fprintf(stderr, "vsp::(%p)", vm->sp);

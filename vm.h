@@ -18,6 +18,7 @@ typedef enum Reg_t {
     Arg0,Arg1, Arg2, Arg3, Arg4, Arg5, Arg6, Arg7, Arg8,
     Arg9,Arg10,Arg11,
 } Reg_t;
+typedef Reg_t knh_Reg_t;
 struct vmcode_builder;
 struct label {
     int index;
@@ -26,10 +27,13 @@ struct label {
 struct vm_code;
 typedef struct vm_code *knh_code_t;
 DEF_ARRAY_S_T(code);
+DEF_ARRAY_S_T(Reg);
 struct vmcode_builder {
     struct vm *vm;
     Array(code) *codebuf;
+    Array(Reg) *regs;
     int codesize;
+    Reg_t (*regalloc)(struct vmcode_builder *, intptr_t level);
     struct vm_code *(*emit_code)(struct vmcode_builder *);
     void (*optimize_code)(struct vmcode_builder *, struct knh_Method_t *mtd);
     void (*local_start)(struct vmcode_builder *, int idx);

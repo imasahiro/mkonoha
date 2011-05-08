@@ -5,6 +5,7 @@
 
 static void asm_expr(Ctx *ctx, knh_Token_t *x);
 static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x);
+static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int level);
 static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
 {
     int i;
@@ -151,7 +152,10 @@ static void asm_call_print(Ctx *ctx, Array(Token) *a)
     CB->oset(CB, Arg2, O(&__n));
     CB->fcall(CB, Reg0, NULL, (void*)knh_OutputStream_print);
 }
-
+static knh_Method_t *findFunc_fromName(Ctx *ctx, knh_string_t *name)
+{
+    return NULL;
+}
 static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
 {
     int i;
@@ -162,9 +166,10 @@ static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
     if (string_cmp_char(func->data.str, "print", 5) == 0) {
         asm_call_print(ctx, a);
     } else {
+        knh_string_t *name = func->data.str;
+        knh_Method_t *mtd = findFunc_fromName(ctx, name);
         FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
             if (Token_CODE(x) == IDENTIFIER_NODE) {
-                knh_string_t *name = x->data.str;
                 asm volatile("int3");
             } else if (Token_isConst(x)) {
                 asm volatile("int3");
@@ -177,6 +182,7 @@ static void asm_decl_tpl(Ctx *ctx, Tuple(Token, Token) *tpl)
 {
     if (Token_isConst(tpl->o2)) {
         knh_value_t v;
+        Reg_t r = register_alloc(CB, tpl->o1, 0);
         if (IS_ConstInt(tpl->o2)) {
             v.ival = tpl->o2->data.ival;
             CB->nset_i(CB, Reg1, v.dval);
@@ -207,21 +213,118 @@ static void asm_decl(Ctx *ctx, knh_Token_t *stmt)
     tpl = cast(Tuple(Token, Token)*, stmt->data.o);
     asm_decl_tpl(ctx, tpl);
 }
-Array(Tuple) *regtable = NULL;
-static Reg_t asm_0(Ctx *ctx, knh_Token_t *tk)
+DEF_TUPLE_T(Token, Reg);
+
+DEF_TUPLE_S2_STRUCT(Token, Reg);
+DEF_TUPLE_S2_OP(Token, Reg);
+
+Array(Tuple) *g_regtable = NULL;
+static Array(Tuple) *global_regtable(void)
 {
+    if (!g_regtable) {
+        g_regtable = Array_new(Tuple);
+    }
+    return g_regtable;
+
+}
+static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int level)
+{
+    Array(Tuple) *regtable = global_regtable();
+    knh_Tuple_t *x;Tuple(Token, Reg) *v;
+    int i;
+    FOR_EACH_ARRAY(regtable, x, i) {
+        v = cast(Tuple(Token, Reg)*, x);
+        if (v->o1 == x0) {
+            return v->o2;
+        }
+    }
+    {
+        Reg_t r = cb->regalloc(cb, level);
+        x = cast(knh_Tuple_t*, Tuple_new_init(Token, Reg, x0, r));
+        Array_add(Tuple, regtable, x);
+        return r;
+    }
+}
+
+static Reg_t asm_0(Ctx *ctx, knh_Token_t *x0)
+{
+    Reg_t r = register_alloc(ctx->cb, x0, ctx->blklevel);
+    if (Token_isConst(x0)) {
+        CB->nset_i(CB, r, x0->data.ival);
+    }
+    else if (Token_CODE(x0) == IDENTIFIER_NODE) {
+        //update_variable(ctx, x0, r);
+    }
+    return r;
+}
+static Reg_t asm_op2_const(Ctx *ctx, enum token_code op, knh_Token_t *x, knh_Token_t *x0, knh_Token_t *x1)
+{
+    Reg_t rtmp = Reg4;
+    if (x0->type == TYPE_Integer) {
+        if (x1->type == TYPE_Integer) {
+            x->type = TYPE_Integer;
+            knh_int_t val = x0->data.ival + x1->data.ival;
+            CB->nset_i(CB, rtmp, val);
+            return rtmp;
+        } else if (x1->type == TYPE_Float) {
+            x->type = TYPE_Float;
+            knh_float_t val = (knh_float_t) x0->data.ival + x1->data.fval;
+            CB->nset_f(CB, rtmp, val);
+            return rtmp;
+        }
+    } else if (x0->type == TYPE_Float) {
+        if (x1->type == TYPE_Integer) {
+            x->type = TYPE_Float;
+            knh_float_t val = x0->data.fval + (knh_float_t) x1->data.ival;
+            CB->nset_f(CB, rtmp, val);
+            return rtmp;
+        } else if (x1->type == TYPE_Float) {
+            x->type = TYPE_Float;
+            knh_float_t val = x0->data.fval + x1->data.fval;
+            CB->nset_f(CB, rtmp, val);
+            return rtmp;
+        }
+    }
     return Reg0;
 }
+static Reg_t asm_op2_int_expr(Ctx *ctx, enum token_code code, Reg_t r1, Reg_t r2)
+{
+#define OPCASE(op) case Op##op:
+    Reg_t r = CB->regalloc(CB, 0);
+    switch (code) {
+        OPCASE(Plus) {
+            CB->iadd(CB, r, r1, r2);
+            break;
+        }
+        default :
+            TODO("int expr");
+    }
+    return r;
+}
+static Reg_t asm_op2_float_expr(Ctx *ctx, enum token_code code, Reg_t r0, Reg_t r1)
+{
+    Reg_t r = CB->regalloc(CB, 0);
+    TODO("float expr");
+    return r;
+}
+static Reg_t asm_op2_object_expr(Ctx *ctx, enum token_code code, Reg_t r0, Reg_t r1)
+{
+    Reg_t r = CB->regalloc(CB, 0);
+    TODO("float expr");
+    return r;
+}
+
 static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x)
 {
     Array(Token) *tk = cast(Array(Token)*, x->data.o);
     T_DUMP(x);
     Tuple(Token, Token) *tpl;
     knh_Token_t *x0, *x1;
+    enum token_code code = Token_CODE(x);
     x0 = Array_n(tk, 0);
     x1 = Array_n(tk, 1);
 #define OPCASE(op) case Op##op:
-    switch (Token_CODE(x)) {
+    switch (code) {
         OPCASE(EQLET) {
             tpl = Tuple_new_init(Token, Token, x0, x1);
             asm_decl_tpl(ctx, tpl);
@@ -230,32 +333,7 @@ static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x)
         OPCASE(Plus) {
             Reg_t r0, r1;
             if (Token_isConst(x0) && Token_isConst(x1)) {
-                Reg_t rtmp = Reg4;
-                if (x0->type == TYPE_Integer) {
-                    if (x1->type == TYPE_Integer) {
-                        x->type = TYPE_Integer;
-                        knh_int_t val = x0->data.ival + x1->data.ival;
-                        CB->nset_i(CB, rtmp, val);
-                        return rtmp;
-                    } else if (x1->type == TYPE_Float) {
-                        x->type = TYPE_Float;
-                        knh_float_t val = (knh_float_t) x0->data.ival + x1->data.fval;
-                        CB->nset_f(CB, rtmp, val);
-                        return rtmp;
-                    }
-                } else if (x0->type == TYPE_Float) {
-                    if (x1->type == TYPE_Integer) {
-                        x->type = TYPE_Float;
-                        knh_float_t val = x0->data.fval + (knh_float_t) x1->data.ival;
-                        CB->nset_f(CB, rtmp, val);
-                        return rtmp;
-                    } else if (x1->type == TYPE_Float) {
-                        x->type = TYPE_Float;
-                        knh_float_t val = x0->data.fval + x1->data.fval;
-                        CB->nset_f(CB, rtmp, val);
-                        return rtmp;
-                    }
-                }
+                return asm_op2_const(ctx, code, x, x0, x1);
             }
             r0 = asm_0(ctx, x0);
             r1 = asm_0(ctx, x1);
@@ -273,7 +351,20 @@ static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x)
                     TODO();
                 }
             } else {
-                TODO();
+                if (x1->type == TYPE_Integer) {
+                    x0->type = TYPE_Integer;
+                    x->type  = TYPE_Integer;
+                    return asm_op2_int_expr(ctx, code, r0, r1);
+                }
+                else if (x1->type == TYPE_Integer) {
+                    TODO("Float typing");
+                    return asm_op2_float_expr(ctx, code, r0, r1);
+                } else {
+                    TODO("Object typing");
+                    return asm_op2_object_expr(ctx, code, r0, r1);
+                }
+                asm volatile("int3");
+                fprintf(stderr, "\n");
             }
         }
         default:

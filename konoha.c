@@ -15,7 +15,7 @@
 #define _ARRAY_SIZE(a) ((int)(sizeof(a) / sizeof((a)[0])))
 #define FOR_EACH_STATIC(a, x, i) for(i=0, x = a; i < _ARRAY_SIZE(a); x=&a[(++i)])
 #define TODO(msg) {\
-    konoha_error("TODO:" msg);\
+    fprintf(stderr, "TODO:" msg);\
     asm volatile("int3");\
 }
 

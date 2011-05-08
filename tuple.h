@@ -58,6 +58,33 @@ static inline void Tuple_##K##_##V##_setV(Tuple(K, V) *t, KNH_T(V) *v){ \
     t->o2 = v;                                                  \
 }
 
+#define DEF_TUPLE_S2_STRUCT(K, V) \
+struct Tuple(K, V) {\
+    knh_hObject_t h;\
+    enum object_type type1;\
+    enum object_type type2;\
+    KNH_T(K) *o1;\
+    KNH_T(V) o2;\
+}
+#define DEF_TUPLE_S2_OP(K, V)\
+static inline Tuple(K, V) *Tuple_new_##K##_##V (KNH_T(K) *k, KNH_T(V) v) {    \
+    Tuple(K, V) *t = cast(Tuple(K, V) *, new_Tuple());                  \
+    t->o1    = k;                                                       \
+    t->o2    = v;                                                       \
+    return t;                                                           \
+}\
+static inline KNH_T(K) *Tuple_##K##_##V##_K(Tuple(K, V) *t) {\
+    return t->o1;                                     \
+}\
+static inline KNH_T(V) Tuple_##K##_##V##_V(Tuple(K, V) *t) {\
+    return t->o2;                                     \
+}\
+static inline void Tuple_##K##_##V##_setK(Tuple(K, V) *t, KNH_T(K) *v){ \
+    t->o1 = v;                                                  \
+}\
+static inline void Tuple_##K##_##V##_setV(Tuple(K, V) *t, KNH_T(V) v){ \
+    t->o2 = v;                                                  \
+}
 #define Tuple_K(K, V, o)       (KNH_T(T) *) Tuple_##K##_##V##_K(o, v)
 #define Tuple_V(K, V, o)       (KNH_T(V) *) Tuple_##K##_##V##_V(o, v)
 #define Tuple_setK(K, V, o, v)              Tuple_##K##_##V##_setK(o, v)

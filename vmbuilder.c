@@ -1,7 +1,24 @@
 DEF_ARRAY_S_STRUCT(code);
 DEF_ARRAY_S_OP(code);
 
+DEF_ARRAY_S_STRUCT(Reg);
+DEF_ARRAY_S_OP(Reg);
 static inline bool hasJump(vm_code_t *pc);
+static Reg_t regalloc(struct vmcode_builder *cb, intptr_t level)
+{
+    Reg_t r;
+    if (Array_size(cb->regs) == 0) {
+        Array_add(Reg, cb->regs, Reg0);
+        return Reg0;
+    }
+    else if (Array_size(cb->regs) == Reg7) {
+        asm volatile("int3");
+        fprintf(stderr, "register spill\n");
+    }
+    r = Array_last(cb->regs) + 1;
+    Array_add(Reg, cb->regs, r);
+    return r;
+}
 static vm_code_t *emit_code(struct vmcode_builder *cb)
 {
     int i, size = Array_size(cb->codebuf) + 2;
@@ -372,6 +389,8 @@ struct vmcode_builder *new_vmcode_builder(vm_t *vm)
 {
     vmcode_builder *cb = cast(vmcode_builder*,malloc_(sizeof(vmcode_builder)));
     cb->vm = vm;
+    cb->regs = Array_new(Reg);
+    SETf(cb, regalloc);
     SETf(cb, emit_code);
     SETf(cb, optimize_code);
     SETf(cb, local_start);
