@@ -18,6 +18,7 @@
     fprintf(stderr, "TODO:" msg);\
     asm volatile("int3");\
 }
+#define CB (ctx->cb)
 
 
 #define FOR_EACH_TOKEN(stt, x, i) \
@@ -35,6 +36,9 @@ DEF_ARRAY_OP(Tuple);
 DEF_ARRAY_S_T(class);
 DEF_ARRAY_S_STRUCT(class);
 DEF_ARRAY_S_OP(class);
+
+DEF_ARRAY_STRUCT(Method);
+DEF_ARRAY_OP(Method);
 
 struct type_info {
     const char *name;
@@ -61,6 +65,7 @@ struct context {
     struct vmcode_builder *cb;
     Array(Tuple) **blkdecls;
     int blklevel;
+    Array(Method) *mtable;
 };
 
 struct alias_info {
@@ -92,8 +97,11 @@ int main(int argc, char **argv)
         g_ctx = cast(struct context*, ctx);
         konoha_in = fopen(argv[1], "r");
         konoha_parse(ctx);
+        knh_Method_t *mtd = new_Method(NULL, NULL);
         vm = ctx->vm;
-        vm_exec(vm, ctx->cb->emit_code(ctx->cb));
+        mtd->pc = CB->emit_code(CB);
+        CB->optimize_code(CB, mtd);
+        vm_exec(vm, mtd->pc);
         fclose(konoha_in);
         context_delete(ctx);
         return 0;
@@ -390,7 +398,7 @@ knh_Token_t *build_instanceof(knh_Token_t *t1, knh_Token_t *t2)
 knh_Token_t *build_reutrn(knh_Token_t *expr)
 {
     knh_Token_t *t = new_(Token);
-    t->code   = RETUEN_NODE;
+    t->code   = RETURN_NODE;
     t->type   = TYPE_UNTYPED;
     t->data.o = O(expr);
     return t;

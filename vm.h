@@ -106,6 +106,7 @@ struct vmcode_builder {
 #define VM_MAX_REG_SIZE 16
 #define VM_REG_SIZE     8
 struct vm {
+    knh_value_t *sp;
     union {
         knh_value_t regs_[VM_MAX_REG_SIZE];
         struct {
@@ -114,7 +115,6 @@ struct vm {
             knh_value_t arg[VM_MAX_REG_SIZE - 8 - 1];
         } r;
     };
-    knh_value_t *sp;
 };
 
 

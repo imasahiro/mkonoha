@@ -7,7 +7,10 @@ static void asm_expr(Ctx *ctx, knh_Token_t *x);
 static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt);
 static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x);
 static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int level);
+static void register_clear(struct vmcode_builder *cb, int level);
+static Reg_t register_alloc_arg(struct vmcode_builder *cb, int i);
 static void register_update(Ctx *ctx, Reg_t reg, knh_Token_t *x);
+static knh_Method_t *findFunc_fromName(Ctx *ctx, knh_string_t *name);
 static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
 {
     int i;
@@ -17,7 +20,6 @@ static void asm_stmt_list(Ctx *ctx, knh_Token_t *stmt)
     }
 }
 
-#define CB (ctx->cb)
 static void append_to_current_decls_tpl(Tuple(Token, Token) *tpl, int level)
 {
     Array(Tuple) *a = g_ctx->blkdecls[level];
@@ -99,6 +101,16 @@ static void asm_print_var_before(Ctx *ctx, struct asmdata *dat, knh_Token_t *x)
 {
     CB->nset_i(CB, dat->v1.r, (x->type!=TYPE_UNTYPED)?x->type:TYPE_Integer);
 }
+static knh_class_t Method_getRetType(knh_Method_t *mtd)
+{
+    Ctx *ctx = g_ctx;
+    struct type_info *typeinfo = ctx->types + mtd->cid;
+    if (typeinfo->param) {
+        return Array_n(typeinfo->param,0);
+    }
+    return TYPE_UNTYPED;
+}
+
 static knh_string_t __equal = {1, "="};
 static knh_string_t __camma = {2, ", "};
 static knh_string_t __n     = {1, "\n"};
@@ -108,7 +120,7 @@ static void asm_call_print(Ctx *ctx, Array(Token) *a)
     knh_Token_t *x;
     FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
         CB->oset(CB, Arg0, O(ctx->out));
-#define RET_REG Arg7
+#define RET_REG Arg6
         if (i != 1) {
             CB->nset_i(CB, Arg1, TYPE_String);
             CB->oset(CB, Arg2, O(&__camma));
@@ -142,7 +154,20 @@ static void asm_call_print(Ctx *ctx, Array(Token) *a)
             CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         }
         else if (Token_CODE(x) == CALL_EXPR) {
+            Reg_t r;
+            knh_string_t *name = Array_n(cast(Array(Token)*,x->data.o),0)->data.str;
+            knh_Method_t *mtd = findFunc_fromName(ctx, name);
+            knh_class_t rcid = Method_getRetType(mtd);
             asm_call_expr(ctx, x);
+            r = register_alloc(CB, x, ctx->blklevel);
+            CB->oset(CB, Arg0, O(ctx->out));
+            CB->nset_i(CB, Arg1, rcid);
+            if (rcid == TYPE_Integer || rcid == TYPE_Float) {
+                CB->nmov(CB, Arg2, r);
+            } else {
+                CB->omov(CB, Arg2, r);
+            }
+            CB->fcall(CB, RET_REG, NULL, (void*)knh_OutputStream_print);
         } else {
 #define TokenType_IsNumber(x) (Token_type(x) == TYPE_Integer || Token_type(x) == TYPE_Float)
             Reg_t r = asm_op2(ctx, x);
@@ -161,6 +186,17 @@ static void asm_call_print(Ctx *ctx, Array(Token) *a)
 }
 static knh_Method_t *findFunc_fromName(Ctx *ctx, knh_string_t *name)
 {
+    int i;
+    Array(Method) *mtable = ctx->mtable;
+    if (mtable) {
+        knh_Method_t *mtd;
+        FOR_EACH_ARRAY(mtable, mtd, i) {
+            if (string_cmp(mtd->name, name) == 0) {
+                return mtd;
+            }
+        }
+    }
+    TODO("function not found");
     return NULL;
 }
 static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
@@ -175,18 +211,21 @@ static void asm_call_expr(Ctx *ctx, knh_Token_t *stmt)
     } else {
         knh_string_t *name = func->data.str;
         knh_Method_t *mtd = findFunc_fromName(ctx, name);
+        Reg_t r0;
         FOR_EACH_ARRAY_INIT(a, x, i, i=1) {
+            Reg_t r = register_alloc_arg(CB, i-1);
             if (Token_CODE(x) == IDENTIFIER_NODE) {
                 asm volatile("int3");
                 TODO("call arg id");
             } else if (Token_isConst(x)) {
-                asm volatile("int3");
-                TODO("call arg const");
+                CB->nset_i(CB, r, x->data.ival);
             } else  {
                 asm volatile("int3");
                 TODO("call arg expr");
             }
         }
+        r0 = register_alloc(CB, stmt, 0);
+        CB->call(CB, r0, mtd, NULL);
     }
 }
 
@@ -239,13 +278,37 @@ static Array(Tuple) *global_regtable(void)
     return g_regtable;
 
 }
+static Reg_t register_alloc_arg(struct vmcode_builder *cb, int i)
+{
+    if (i > Arg11) {
+        TODO("Too Many args");
+    }
+    return (Reg_t)Arg0 + i;
+}
+Array(Token) *g_args;
+static void push_args(Ctx *ctx, Array(Token) *x0)
+{
+    g_args = x0;
+}
+
 static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int level)
 {
     Array(Tuple) *regtable = global_regtable();
     knh_Tuple_t *x;Tuple(Token, Reg) *v;
     int i;
+    if (Token_CODE(x0) == IDENTIFIER_NODE) {
+        knh_Token_t *y;
+        FOR_EACH_ARRAY_INIT(g_args, y, i, i=2) {
+            if (string_cmp(y->data.str, x0->data.str) == 0) {
+                return register_alloc_arg(cb, i-2);;
+            }
+        }
+    }
     FOR_EACH_ARRAY(regtable, x, i) {
         v = cast(Tuple(Token, Reg)*, x);
+        if (!v->o1 || v->o2 == -1) {
+            continue;
+        }
         if (v->o1 == x0) {
             return v->o2;
         }
@@ -262,6 +325,17 @@ static Reg_t register_alloc(struct vmcode_builder *cb, knh_Token_t *x0, int leve
         x = cast(knh_Tuple_t*, Tuple_new_init(Token, Reg, x0, r));
         Array_add(Tuple, regtable, x);
         return r;
+    }
+}
+static void register_clear(struct vmcode_builder *cb, int level)
+{
+    Array(Tuple) *regtable = global_regtable();
+    knh_Tuple_t *x;Tuple(Token, Reg) *v;
+    int i;
+    FOR_EACH_ARRAY(regtable, x, i) {
+        Tuple(Token, Reg) *v = cast(Tuple(Token, Reg)*, x);
+        v->o1 = NULL;
+        v->o2 = -1;
     }
 }
 static void register_update(Ctx *ctx, Reg_t reg, knh_Token_t *x0)
@@ -413,29 +487,45 @@ static Reg_t asm_op2(Ctx *ctx, knh_Token_t *x)
             break;
     }
 #undef OPCASE
+    TODO("not match");
     return Reg0;
 }
-
+static knh_Method_t *add_newfunction(Ctx *ctx, knh_class_t cid, knh_string_t *name, fvm2 func)
+{
+    knh_Method_t *mtd = new_Method(func, NULL);
+    mtd->cid = cid;
+    mtd->name = name;
+    Array_add(Method, ctx->mtable, mtd);
+    return mtd;
+}
 static void function_decl(Ctx *ctx, knh_Token_t *x0)
 {
-    int i;
     Array(Token) *a;
     knh_Token_t *x;
-    //T_DUMP(x0);
+    knh_Method_t *mtd;
+    struct vmcode_builder *oldcb, *cb = new_vmcode_builder(ctx->vm);
+    oldcb = ctx->cb; ctx->cb = cb;
+
     a = cast(Array(Token)*, x0->data.o);
-    knh_dump(ctx, O(Array_n(a, 0)));
-    FOR_EACH_ARRAY_INIT(a, x, i, i=2) {
-        knh_dump(ctx, O(x));
-    }
+    x = Array_n(a, 0);
+    mtd = add_newfunction(ctx, x0->type, x->data.str, NULL);
+    push_args(ctx, a);
+    //int i;
+    //FOR_EACH_ARRAY_INIT(a, x, i, i=2) {
+    //    knh_dump(ctx, O(x));
+    //}
     asm_expr(ctx, Array_n(a, 1));
-    asm volatile("int3");
+    mtd->pc = CB->emit_code(CB);
+    CB->optimize_code(CB, mtd);
+    register_clear(CB, 0);
+    CB = oldcb;
 }
 static void asm_return_expr(Ctx *ctx, knh_Token_t *x)
 {
-    knh_Token_t *x0 = cast(knh_Token_t*, t->data.o);
+    knh_Token_t *x0 = cast(knh_Token_t*, x->data.o);
     Reg_t r = Arg0;
     if (x0) {
-        r = asm_0(ctx, x);
+        r = asm_op2(ctx, x0);
     }
     CB->ret(CB, r);
 }

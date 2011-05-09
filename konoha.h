@@ -43,12 +43,17 @@ void knh_dump(CTX ctx, knh_Object_t *o);
 typedef enum operator_code KOperator;
 
 /* types decl */
-//##define @Generics Array<Token>
+//##define Array<Token>
 DEF_ARRAY_T(Token);
 DEF_TUPLE_T(Token, Token);
 
+//##define Array<int>
 DEF_ARRAY_S_T(int);
+//##define Array<Object>
 DEF_ARRAY_T(Object);
+
+//##define Array<Method>
+DEF_ARRAY_T(Method);
 
 knh_Token_t *konoha_build_id(const char *);
 knh_Token_t *konoha_build_int(int);

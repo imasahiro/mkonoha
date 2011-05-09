@@ -12,7 +12,7 @@ enum token_code {
     VAR_DECL,
     FUNCTION_DECL,
     CALL_EXPR,
-    RETUEN_NODE, 
+    RETURN_NODE,
     TOKEN_CODE_MAX
 };
 

@@ -65,6 +65,8 @@ struct knh_Method_t {
     knh_hObject_t h;
     fvm2 call;
     struct vm_code *pc;
+    knh_class_t cid;
+    knh_string_t *name;
 };
 
 enum object_type {

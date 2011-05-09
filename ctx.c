@@ -97,7 +97,7 @@ static void Token_write(CTX ctx, struct io *io, knh_Object_t *o)
         case STRING_CONST:
             io_puts2(io, "string:");
             break;
-        case RETUEN_NODE:
+        case RETURN_NODE:
             io_puts2(io, "return:");
             Token_write(ctx, io, O(t->data.o));
             break;
@@ -199,6 +199,7 @@ static void context_init_stream(struct context *ctx)
     ((struct context *)ctx)->_out = IOStream_getIO(STREAM(ctx->out));
     ((struct context *)ctx)->_err = IOStream_getIO(STREAM(ctx->err));
 }
+
 static Ctx *new_context(void)
 {
     struct context *ctx = malloc_(sizeof(struct context));
@@ -209,6 +210,7 @@ static Ctx *new_context(void)
     ctx->cb = NULL;
     ctx->blkdecls = (Array(Tuple)**)malloc_(sizeof(Array(Tuple)*) * 32);
     ctx->blklevel = 0;
+    ctx->mtable = Array_new(Method);
     return ctx;
 }
 
